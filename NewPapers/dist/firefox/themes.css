@@ -1,0 +1,86 @@
+/* Theme tokens. Applied as :root[data-theme=…] by ui/common.js. */
+:root {
+  --radius: 12px; --radius-sm: 8px; --focus-w: 2px;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+:root, :root[data-theme="claude-light"] {
+  color-scheme: light;
+  --bg: #F0EEE6; --surface: #FAF9F5; --surface-2: #F5F3EC; --border: #E3DFD3; --border-strong: #CFC9B9;
+  --text: #1F1E1D; --text-muted: #5E5D59; --accent: #D97757; --accent-strong: #B5532F;
+  --link: #A84E2C; --btn: #B5532F; --btn-fg: #FFFFFF; --btn-hover: #9E4727; --logo-fg: #1F1E1D;
+  --chip: #EFE9DE; --danger: #B3261E; --warn-bg: #FBEBD9; --warn-fg: #6B3A12; --warn-border: #EBC9A2;
+  --ok-fg: #2B6A45;
+  --shadow: 0 1px 2px rgba(60,40,20,.06), 0 6px 20px rgba(60,40,20,.08);
+  --src-biorxiv: #B0413E; --src-medrxiv: #2F5E9E; --src-pubmed: #2C6E6A; --src-journal: #6B5B95; --src-openalex: #8A5A12; --src-arxiv: #8C2F39;
+}
+:root[data-theme="slate-light"] {
+  color-scheme: light;
+  --bg: #EEF1F5; --surface: #FFFFFF; --surface-2: #F6F8FA; --border: #D8DEE6; --border-strong: #B9C3D0;
+  --text: #0F172A; --text-muted: #475569; --accent: #3B5BDB; --accent-strong: #3B5BDB;
+  --link: #3451C7; --btn: #3B5BDB; --btn-fg: #FFFFFF; --btn-hover: #2F4AC0; --logo-fg: #FFFFFF;
+  --chip: #E8EDF5; --danger: #B42318; --warn-bg: #FEF3E2; --warn-fg: #7A3E07; --warn-border: #F5CF97;
+  --ok-fg: #166534;
+  --shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 20px rgba(15,23,42,.08);
+  --src-biorxiv: #B42318; --src-medrxiv: #1D4ED8; --src-pubmed: #0F766E; --src-journal: #6D28D9; --src-openalex: #A15C07; --src-arxiv: #9F1239;
+}
+:root[data-theme="forest-light"] {
+  color-scheme: light;
+  --bg: #E9EFE6; --surface: #FBFCF9; --surface-2: #F1F5EE; --border: #D5DDD0; --border-strong: #B4C2AC;
+  --text: #16231B; --text-muted: #46574B; --accent: #2F7A4E; --accent-strong: #2B6A45;
+  --link: #256140; --btn: #2B6A45; --btn-fg: #FFFFFF; --btn-hover: #215737; --logo-fg: #FFFFFF;
+  --chip: #E3EBDD; --danger: #A8321F; --warn-bg: #F7EFD8; --warn-fg: #5F4708; --warn-border: #E3D09A;
+  --ok-fg: #256140;
+  --shadow: 0 1px 2px rgba(22,35,27,.06), 0 6px 20px rgba(22,35,27,.08);
+  --src-biorxiv: #A8321F; --src-medrxiv: #285C8F; --src-pubmed: #1F6E5C; --src-journal: #6A4C93; --src-openalex: #866012; --src-arxiv: #8E2C48;
+}
+:root[data-theme="hc-light"] {
+  color-scheme: light; --focus-w: 3px;
+  --bg: #FFFFFF; --surface: #FFFFFF; --surface-2: #F0F0F0; --border: #1A1A1A; --border-strong: #000000;
+  --text: #000000; --text-muted: #262626; --accent: #0038B8; --accent-strong: #0038B8;
+  --link: #0038B8; --btn: #0038B8; --btn-fg: #FFFFFF; --btn-hover: #002A8C; --logo-fg: #FFFFFF;
+  --chip: #FFFFFF; --danger: #A30000; --warn-bg: #FFF4C2; --warn-fg: #000000; --warn-border: #000000;
+  --ok-fg: #005A00;
+  --shadow: none;
+  --src-biorxiv: #000; --src-medrxiv: #000; --src-pubmed: #000; --src-journal: #000; --src-openalex: #000; --src-arxiv: #000;
+}
+:root[data-theme="claude-dark"] {
+  color-scheme: dark;
+  --bg: #1F1E1D; --surface: #262624; --surface-2: #30302E; --border: #3E3D39; --border-strong: #55534D;
+  --text: #F5F4EF; --text-muted: #B7B5A9; --accent: #D97757; --accent-strong: #D97757;
+  --link: #E8936F; --btn: #D97757; --btn-fg: #1F1E1D; --btn-hover: #E48A68; --logo-fg: #1F1E1D;
+  --chip: #34332F; --danger: #F28B82; --warn-bg: #3A2A1E; --warn-fg: #F5D3B3; --warn-border: #5C412B;
+  --ok-fg: #8FD19E;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  --src-biorxiv: #F08A86; --src-medrxiv: #8DB4F2; --src-pubmed: #7CCFC4; --src-journal: #C3A9F0; --src-openalex: #E7B865; --src-arxiv: #F29AB0;
+}
+:root[data-theme="ocean-dark"] {
+  color-scheme: dark;
+  --bg: #0B1622; --surface: #102030; --surface-2: #16293C; --border: #24405A; --border-strong: #335777;
+  --text: #E6F1F8; --text-muted: #9DB4C6; --accent: #38BDF8; --accent-strong: #38BDF8;
+  --link: #5CCBFA; --btn: #38BDF8; --btn-fg: #04121D; --btn-hover: #62CDFA; --logo-fg: #04121D;
+  --chip: #1A3047; --danger: #FF8F8F; --warn-bg: #2B2516; --warn-fg: #F3DDA5; --warn-border: #4E4325;
+  --ok-fg: #6EE7B7;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,8,16,.45);
+  --src-biorxiv: #FF9C93; --src-medrxiv: #93C5FD; --src-pubmed: #5EEAD4; --src-journal: #C4B5FD; --src-openalex: #FCD34D; --src-arxiv: #F9A8D4;
+}
+:root[data-theme="dusk-dark"] {
+  color-scheme: dark;
+  --bg: #17151F; --surface: #201D2A; --surface-2: #2A2636; --border: #3A3549; --border-strong: #514A66;
+  --text: #EEEAF6; --text-muted: #ADA5C2; --accent: #A78BFA; --accent-strong: #A78BFA;
+  --link: #B9A3FB; --btn: #A78BFA; --btn-fg: #17151F; --btn-hover: #BBA5FC; --logo-fg: #17151F;
+  --chip: #2F2A3D; --danger: #FF8FA3; --warn-bg: #33281C; --warn-fg: #F1D6AE; --warn-border: #54412B;
+  --ok-fg: #86EFAC;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(8,4,20,.45);
+  --src-biorxiv: #FF9E9E; --src-medrxiv: #9DBDFF; --src-pubmed: #7FDBCB; --src-journal: #E0B3FF; --src-openalex: #F5C97A; --src-arxiv: #FFA3C7;
+}
+:root[data-theme="hc-dark"] {
+  color-scheme: dark; --focus-w: 3px;
+  --bg: #000000; --surface: #000000; --surface-2: #141414; --border: #FFFFFF; --border-strong: #FFFFFF;
+  --text: #FFFFFF; --text-muted: #E6E6E6; --accent: #FFD400; --accent-strong: #FFD400;
+  --link: #FFD400; --btn: #FFD400; --btn-fg: #000000; --btn-hover: #FFE14D; --logo-fg: #000000;
+  --chip: #000000; --danger: #FF6B6B; --warn-bg: #000000; --warn-fg: #FFD400; --warn-border: #FFD400;
+  --ok-fg: #7CFC7C;
+  --shadow: none;
+  --src-biorxiv: #FFF; --src-medrxiv: #FFF; --src-pubmed: #FFF; --src-journal: #FFF; --src-openalex: #FFF; --src-arxiv: #FFF;
+}

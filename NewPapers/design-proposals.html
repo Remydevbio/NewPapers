@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Papers — Design Proposals</title>
+<style>
+/* ------------------------------------------------------------------
+   Page chrome (neutral, not part of the extension)
+------------------------------------------------------------------- */
+:root {
+  --page-bg: #f4f4f2; --page-fg: #1c1c1a; --page-muted: #5b5b57;
+  --page-card: #ffffff; --page-border: #dddcd6; --page-accent: #b5532f;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-page="light"]) {
+    --page-bg: #141413; --page-fg: #ecebe6; --page-muted: #a9a8a1;
+    --page-card: #1d1d1b; --page-border: #34332f; --page-accent: #e8936f;
+    color-scheme: dark;
+  }
+}
+:root[data-page="dark"] {
+  --page-bg: #141413; --page-fg: #ecebe6; --page-muted: #a9a8a1;
+  --page-card: #1d1d1b; --page-border: #34332f; --page-accent: #e8936f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page-bg); color: var(--page-fg);
+  font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding: 0 16px 80px;
+}
+.page { max-width: 1240px; margin: 0 auto; }
+.page-head { padding: 40px 0 8px; }
+.page-head h1 { font-size: 28px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+.page-head p { margin: 0 0 6px; color: var(--page-muted); max-width: 78ch; }
+.controls {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 0; margin: 16px 0 8px; background: var(--page-bg); border-bottom: 1px solid var(--page-border);
+}
+.seg { display: inline-flex; border: 1px solid var(--page-border); border-radius: 999px; padding: 3px; background: var(--page-card); }
+.seg button {
+  border: 0; background: transparent; color: var(--page-muted); font: inherit; font-size: 13px;
+  padding: 5px 12px; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--page-fg); color: var(--page-bg); }
+.seg button:focus-visible, .jump a:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 2px; }
+.ctl-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--page-muted); margin-right: 6px; }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; }
+.jump a { font-size: 13px; color: var(--page-fg); text-decoration: none; border: 1px solid var(--page-border); padding: 3px 10px; border-radius: 999px; background: var(--page-card); }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 20px 0 8px; }
+.note { background: var(--page-card); border: 1px solid var(--page-border); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+.note h3 { margin: 0 0 6px; font-size: 14px; }
+.note p, .note ul { margin: 0; color: var(--page-muted); }
+.note ul { padding-left: 18px; }
+.theme-row { margin: 36px 0 0; }
+.theme-row[hidden] { display: none; }
+.theme-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 14px; }
+.theme-head h2 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+.theme-head .tag { font-size: 12px; border: 1px solid var(--page-border); border-radius: 999px; padding: 2px 9px; color: var(--page-muted); }
+.theme-head .desc { color: var(--page-muted); font-size: 14px; flex-basis: 100%; margin: 0; }
+.swatches { display: inline-flex; gap: 4px; }
+.swatches span { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(127,127,127,.35); }
+.ratios { font-size: 12px; color: var(--page-muted); font-variant-numeric: tabular-nums; }
+.mocks { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.frame-label { font-size: 12px; color: var(--page-muted); margin: 0 0 6px 2px; }
+.mocks.hide-popup .slot-popup, .mocks.hide-options .slot-options { display: none; }
+.slot-options { flex: 1 1 560px; min-width: 0; max-width: 780px; }
+.slot-popup { flex: 0 0 auto; max-width: 100%; }
+.slot-badge { flex: 0 0 auto; }
+
+/* ------------------------------------------------------------------
+   THEMES — in the extension these live on :root[data-theme=…];
+   here they are scoped to each mock so all 8 can render at once.
+------------------------------------------------------------------- */
+[data-theme] {
+  --radius: 12px; --radius-sm: 8px;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --focus-w: 2px;
+}
+[data-theme="claude-light"] {
+  color-scheme: light;
+  --bg: #F0EEE6; --surface: #FAF9F5; --surface-2: #F5F3EC; --border: #E3DFD3; --border-strong: #CFC9B9;
+  --text: #1F1E1D; --text-muted: #5E5D59; --accent: #D97757; --accent-strong: #B5532F;
+  --link: #A84E2C; --btn: #B5532F; --btn-fg: #FFFFFF; --btn-hover: #9E4727;
+  --chip: #EFE9DE; --danger: #B3261E; --warn-bg: #FBEBD9; --warn-fg: #6B3A12; --warn-border: #EBC9A2;
+  --shadow: 0 1px 2px rgba(60,40,20,.06), 0 6px 20px rgba(60,40,20,.08);
+  --src-biorxiv: #B0413E; --src-medrxiv: #2F5E9E; --src-pubmed: #2C6E6A; --src-journal: #6B5B95; --src-openalex: #8A5A12; --src-arxiv: #8C2F39;
+}
+[data-theme="slate-light"] {
+  color-scheme: light;
+  --bg: #EEF1F5; --surface: #FFFFFF; --surface-2: #F6F8FA; --border: #D8DEE6; --border-strong: #B9C3D0;
+  --text: #0F172A; --text-muted: #475569; --accent: #3B5BDB; --accent-strong: #3B5BDB;
+  --link: #3451C7; --btn: #3B5BDB; --btn-fg: #FFFFFF; --btn-hover: #2F4AC0;
+  --chip: #E8EDF5; --danger: #B42318; --warn-bg: #FEF3E2; --warn-fg: #7A3E07; --warn-border: #F5CF97;
+  --shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 20px rgba(15,23,42,.08);
+  --src-biorxiv: #B42318; --src-medrxiv: #1D4ED8; --src-pubmed: #0F766E; --src-journal: #6D28D9; --src-openalex: #A15C07; --src-arxiv: #9F1239;
+}
+[data-theme="forest-light"] {
+  color-scheme: light;
+  --bg: #E9EFE6; --surface: #FBFCF9; --surface-2: #F1F5EE; --border: #D5DDD0; --border-strong: #B4C2AC;
+  --text: #16231B; --text-muted: #46574B; --accent: #2F7A4E; --accent-strong: #2B6A45;
+  --link: #256140; --btn: #2B6A45; --btn-fg: #FFFFFF; --btn-hover: #215737;
+  --chip: #E3EBDD; --danger: #A8321F; --warn-bg: #F7EFD8; --warn-fg: #5F4708; --warn-border: #E3D09A;
+  --shadow: 0 1px 2px rgba(22,35,27,.06), 0 6px 20px rgba(22,35,27,.08);
+  --src-biorxiv: #A8321F; --src-medrxiv: #285C8F; --src-pubmed: #1F6E5C; --src-journal: #6A4C93; --src-openalex: #866012; --src-arxiv: #8E2C48;
+}
+[data-theme="hc-light"] {
+  color-scheme: light; --focus-w: 3px;
+  --bg: #FFFFFF; --surface: #FFFFFF; --surface-2: #F0F0F0; --border: #1A1A1A; --border-strong: #000000;
+  --text: #000000; --text-muted: #262626; --accent: #0038B8; --accent-strong: #0038B8;
+  --link: #0038B8; --btn: #0038B8; --btn-fg: #FFFFFF; --btn-hover: #002A8C;
+  --chip: #FFFFFF; --danger: #A30000; --warn-bg: #FFF4C2; --warn-fg: #000000; --warn-border: #000000;
+  --shadow: none;
+  --src-biorxiv: #000; --src-medrxiv: #000; --src-pubmed: #000; --src-journal: #000; --src-openalex: #000; --src-arxiv: #000;
+}
+[data-theme="claude-dark"] {
+  color-scheme: dark;
+  --bg: #1F1E1D; --surface: #262624; --surface-2: #30302E; --border: #3E3D39; --border-strong: #55534D;
+  --text: #F5F4EF; --text-muted: #B7B5A9; --accent: #D97757; --accent-strong: #D97757;
+  --link: #E8936F; --btn: #D97757; --btn-fg: #1F1E1D; --btn-hover: #E48A68;
+  --chip: #34332F; --danger: #F28B82; --warn-bg: #3A2A1E; --warn-fg: #F5D3B3; --warn-border: #5C412B;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  --src-biorxiv: #F08A86; --src-medrxiv: #8DB4F2; --src-pubmed: #7CCFC4; --src-journal: #C3A9F0; --src-openalex: #E7B865; --src-arxiv: #F29AB0;
+}
+[data-theme="ocean-dark"] {
+  color-scheme: dark;
+  --bg: #0B1622; --surface: #102030; --surface-2: #16293C; --border: #24405A; --border-strong: #335777;
+  --text: #E6F1F8; --text-muted: #9DB4C6; --accent: #38BDF8; --accent-strong: #38BDF8;
+  --link: #5CCBFA; --btn: #38BDF8; --btn-fg: #04121D; --btn-hover: #62CDFA;
+  --chip: #1A3047; --danger: #FF8F8F; --warn-bg: #2B2516; --warn-fg: #F3DDA5; --warn-border: #4E4325;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,8,16,.45);
+  --src-biorxiv: #FF9C93; --src-medrxiv: #93C5FD; --src-pubmed: #5EEAD4; --src-journal: #C4B5FD; --src-openalex: #FCD34D; --src-arxiv: #F9A8D4;
+}
+[data-theme="dusk-dark"] {
+  color-scheme: dark;
+  --bg: #17151F; --surface: #201D2A; --surface-2: #2A2636; --border: #3A3549; --border-strong: #514A66;
+  --text: #EEEAF6; --text-muted: #ADA5C2; --accent: #A78BFA; --accent-strong: #A78BFA;
+  --link: #B9A3FB; --btn: #A78BFA; --btn-fg: #17151F; --btn-hover: #BBA5FC;
+  --chip: #2F2A3D; --danger: #FF8FA3; --warn-bg: #33281C; --warn-fg: #F1D6AE; --warn-border: #54412B;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(8,4,20,.45);
+  --src-biorxiv: #FF9E9E; --src-medrxiv: #9DBDFF; --src-pubmed: #7FDBCB; --src-journal: #E0B3FF; --src-openalex: #F5C97A; --src-arxiv: #FFA3C7;
+}
+[data-theme="hc-dark"] {
+  color-scheme: dark; --focus-w: 3px;
+  --bg: #000000; --surface: #000000; --surface-2: #141414; --border: #FFFFFF; --border-strong: #FFFFFF;
+  --text: #FFFFFF; --text-muted: #E6E6E6; --accent: #FFD400; --accent-strong: #FFD400;
+  --link: #FFD400; --btn: #FFD400; --btn-fg: #000000; --btn-hover: #FFE14D;
+  --chip: #000000; --danger: #FF6B6B; --warn-bg: #000000; --warn-fg: #FFD400; --warn-border: #FFD400;
+  --shadow: none;
+  --src-biorxiv: #FFF; --src-medrxiv: #FFF; --src-pubmed: #FFF; --src-journal: #FFF; --src-openalex: #FFF; --src-arxiv: #FFF;
+}
+
+/* ------------------------------------------------------------------
+   Shared extension UI
+------------------------------------------------------------------- */
+.ext {
+  font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--text); background: var(--bg);
+  border-radius: 14px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.ext *:focus { outline: none; }
+.ext .list, .ext .op-main, .ext .tabs { scrollbar-color: var(--border-strong) transparent; scrollbar-width: thin; }
+.ext *:focus-visible { outline: var(--focus-w) solid var(--accent-strong); outline-offset: 2px; border-radius: 6px; }
+.ext button { font: inherit; color: inherit; }
+.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 6px 11px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 500; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn-primary { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
+.btn-primary:hover { background: var(--btn-hover); border-color: var(--btn-hover); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+.btn-icon { padding: 6px; }
+.btn-sm { padding: 4px 8px; font-size: 12px; }
+.btn-danger { color: var(--danger); }
+
+/* Popup */
+.popup { width: 400px; max-width: 100%; height: 600px; display: flex; flex-direction: column; }
+.pp-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.logo svg { width: 16px; height: 16px; stroke: var(--btn-fg); fill: none; stroke-width: 2; }
+[data-theme="claude-light"] .logo svg { stroke: #1F1E1D; }
+.pp-title { flex: 1; min-width: 0; }
+.pp-title strong { display: block; font-size: 14px; letter-spacing: -0.005em; }
+.pp-title span { display: block; font-size: 11.5px; color: var(--text-muted); }
+.banner {
+  display: flex; gap: 8px; align-items: flex-start; margin: 10px 12px 0; padding: 8px 10px; font-size: 12px;
+  background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-border); border-radius: var(--radius-sm);
+}
+.banner .icon { width: 14px; height: 14px; margin-top: 2px; }
+.banner p { margin: 0; flex: 1; }
+.banner button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0 2px; text-decoration: underline; font-size: 12px; }
+.tabs { display: flex; gap: 6px; padding: 10px 12px 0; overflow-x: auto; scrollbar-width: none; }
+.tab {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+}
+.tab:hover { color: var(--text); border-color: var(--border-strong); }
+.tab[aria-selected="true"] { color: var(--text); border-color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent-strong); }
+.count { min-width: 18px; padding: 0 5px; height: 18px; border-radius: 999px; font-size: 11px; font-weight: 600; display: inline-grid; place-items: center; background: var(--chip); color: var(--text); font-variant-numeric: tabular-nums; }
+.tab[aria-selected="true"] .count { background: var(--btn); color: var(--btn-fg); }
+.count.zero { opacity: .7; }
+[data-theme^="hc"] .count { border: 1px solid var(--border); }
+.topic-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; font-size: 12px; color: var(--text-muted); }
+.topic-bar .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 11px; }
+.list { flex: 1; overflow-y: auto; padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.entry {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 10px 14px;
+  position: relative; transition: opacity .2s, transform .2s;
+}
+.entry.leaving { opacity: 0; transform: translateX(12px); }
+.entry.unread::before { content: ""; position: absolute; left: 5px; top: 15px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-strong); }
+.e-top { display: flex; gap: 8px; align-items: flex-start; }
+.e-title { flex: 1; margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.35; letter-spacing: -0.005em; }
+.e-title a { color: var(--text); text-decoration: none; }
+.e-title a:hover { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.e-dismiss { margin: -4px -6px 0 0; color: var(--text-muted); }
+.e-authors { margin: 3px 0 0; color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 7px; font-size: 11.5px; color: var(--text-muted); }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px 1px 6px; border-radius: 6px; font-weight: 500; font-size: 11px;
+  background: var(--chip); color: var(--text); border: 1px solid transparent;
+}
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--text-muted)); }
+[data-theme^="hc"] .badge { border-color: var(--border); }
+.e-links { display: flex; gap: 10px; margin-left: auto; }
+.e-links a, .linklike { color: var(--link); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; }
+.e-links a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.e-links .icon { width: 12px; height: 12px; }
+.abs-toggle {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-muted); font-size: 12px; font-weight: 500;
+}
+.abs-toggle:hover { color: var(--text); }
+.abs-toggle .icon { width: 13px; height: 13px; transition: transform .2s; }
+.abs-toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+.abs { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
+.abs.open { grid-template-rows: 1fr; }
+.abs > div { overflow: hidden; }
+.abs p { margin: 6px 0 2px; font-size: 12.5px; line-height: 1.55; color: var(--text); }
+.empty { text-align: center; color: var(--text-muted); padding: 40px 16px; font-size: 13px; }
+.empty strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 4px; }
+.pp-foot { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-top: 1px solid var(--border); background: var(--surface); font-size: 11.5px; color: var(--text-muted); }
+
+/* Toolbar badge preview */
+.tb { width: 150px; padding: 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.tb .ico { position: relative; width: 28px; height: 28px; margin-right: 8px; flex: none; }
+.tb .ico .logo { width: 28px; height: 28px; }
+.tb .ico b { position: absolute; right: -8px; bottom: -6px; background: var(--btn); color: var(--btn-fg); font-size: 10px; line-height: 1; padding: 3px 4px; border-radius: 6px; font-weight: 700; }
+.tb small { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+
+/* Options */
+.options { display: grid; grid-template-columns: 172px 1fr; height: 640px; }
+.op-nav { background: var(--surface); border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.op-brand { display: flex; align-items: center; gap: 8px; padding: 0 6px 14px; font-weight: 600; font-size: 14px; }
+.op-nav button { display: flex; align-items: center; gap: 9px; text-align: left; border: 0; background: none; padding: 7px 9px; border-radius: 8px; cursor: pointer; color: var(--text-muted); font-weight: 500; }
+.op-nav button:hover { background: var(--surface-2); color: var(--text); }
+.op-nav button[aria-current="true"] { background: var(--chip); color: var(--text); }
+[data-theme^="hc"] .op-nav button[aria-current="true"] { outline: 1px solid var(--border); }
+.op-main { overflow-y: auto; padding: 18px 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+.op-sec h3 { font-size: 14px; margin: 0 0 2px; letter-spacing: -0.005em; }
+.op-sec .sub { margin: 0 0 10px; color: var(--text-muted); font-size: 12px; }
+.sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.trow { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 8px; border-bottom: 1px solid var(--border); }
+.trow:last-child { border-bottom: 0; }
+.grip { color: var(--text-muted); cursor: grab; display: flex; flex-direction: column; gap: 0; }
+.grip button { border: 0; background: none; padding: 0 2px; color: var(--text-muted); cursor: pointer; line-height: 0; }
+.grip .icon { width: 13px; height: 13px; }
+.tinfo { flex: 1; min-width: 0; }
+.tinfo strong { display: block; font-size: 13px; }
+.tinfo code { display: block; font-family: var(--mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-src { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+.mini-src span { font-size: 10.5px; padding: 0 6px; border-radius: 5px; background: var(--chip); color: var(--text-muted); }
+.mini-src span.off { text-decoration: line-through; opacity: .75; }
+.edit { padding: 12px; background: var(--surface-2); border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+.field { display: grid; gap: 4px; }
+.field label, .lbl { font-size: 11.5px; font-weight: 600; color: var(--text); }
+.field .hint { font-size: 11px; color: var(--text-muted); }
+.input {
+  font: inherit; font-size: 12.5px; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 6px 9px; width: 100%;
+}
+.input.mono { font-family: var(--mono); font-size: 11.5px; }
+.input:focus-visible { outline: var(--focus-w) solid var(--accent-strong); outline-offset: 0; border-color: var(--accent-strong); }
+.tri { display: flex; flex-wrap: wrap; gap: 6px; }
+.tri .src { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 11.5px; }
+.tri select { font: inherit; font-size: 11px; border: 0; background: var(--chip); color: var(--text); border-radius: 5px; padding: 1px 3px; }
+.edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.srow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.srow:last-child { border-bottom: 0; }
+.srow .tinfo span { display: block; font-size: 11.5px; color: var(--text-muted); }
+.switch { position: relative; width: 34px; height: 20px; flex: none; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--chip); cursor: pointer; padding: 0; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: transform .18s, background .15s; }
+.switch[aria-checked="true"] { background: var(--btn); border-color: var(--btn); }
+.switch[aria-checked="true"]::after { transform: translateX(14px); background: var(--btn-fg); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.theme-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; }
+.tp { border: 1px solid var(--border); border-radius: 10px; padding: 6px; background: var(--surface); cursor: pointer; text-align: left; font-size: 11px; color: var(--text-muted); }
+.tp[aria-checked="true"] { border-color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent-strong); color: var(--text); }
+.tp i { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin-bottom: 5px; border: 1px solid rgba(127,127,127,.25); }
+.tp i b { flex: 1; }
+.auto-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 12px 12px; font-size: 12px; color: var(--text-muted); }
+.auto-row select { font: inherit; font-size: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; padding: 3px 6px; }
+.data-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; }
+.data-row .muted { color: var(--text-muted); font-size: 11.5px; margin-left: auto; }
+
+@media (max-width: 720px) {
+  .options { grid-template-columns: 1fr; height: auto; }
+  .op-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+  .op-brand { width: 100%; padding-bottom: 6px; }
+  .op-main { max-height: 640px; }
+  .theme-picker { grid-template-columns: repeat(2, 1fr); }
+  .grid2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .abs, .entry, .switch::after, .abs-toggle .icon { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <h1>New Papers: design proposals</h1>
+    <p>The popup and the options page in all eight themes, filled with made-up data (titles, authors and journals are fictional). The popups are interactive: switch topic tabs, expand abstracts, dismiss one entry or a whole topic, and toggle switches.</p>
+    <p>The startup window (<code>windows.create({type:"popup"})</code>) and the toolbar popup use the same 400 px UI. A small toolbar-badge preview sits next to each popup.</p>
+  </header>
+
+  <section class="notes" aria-label="Design notes">
+    <div class="note"><h3>Layout</h3><p>Topics are pill tabs, each with an unread count. Under the tabs: the topic's query, a "Dismiss all" button, then compact cards. A merged preprint and journal article shows as one card with both links.</p></div>
+    <div class="note"><h3>Accessibility</h3><ul><li>Text contrast is ≥ 4.5:1 and focus rings are ≥ 3:1 in every theme (ratios listed per theme)</li><li>Visible <code>:focus-visible</code> rings, 3 px in the high-contrast themes</li><li>Tabs, buttons and switches use real elements with ARIA states</li><li>Respects reduced motion</li></ul></div>
+    <div class="note"><h3>Theme setting</h3><p>Choose one of the 8 themes, or <b>Auto</b>. Auto follows the system and uses a chosen light/dark pair (default: Claude Light / Claude Dark).</p></div>
+    <div class="note"><h3>Errors</h3><p>A source failure shows the amber banner above the tabs (shown in every mock so you can judge it). The list is kept and the source is retried on the next start.</p></div>
+  </section>
+
+  <div class="controls" role="toolbar" aria-label="View controls">
+    <div><span class="ctl-label">Themes</span>
+      <span class="seg" id="f-mode"><button aria-pressed="true" data-v="all">All 8</button><button aria-pressed="false" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button></span></div>
+    <div><span class="ctl-label">Show</span>
+      <span class="seg" id="f-show"><button aria-pressed="true" data-v="both">Both</button><button aria-pressed="false" data-v="popup">Popup</button><button aria-pressed="false" data-v="options">Options</button></span></div>
+    <div><span class="ctl-label">Page</span>
+      <span class="seg" id="f-page"><button aria-pressed="true" data-v="auto">Auto</button><button aria-pressed="false" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button></span></div>
+    <nav class="jump" id="jump" aria-label="Jump to theme"></nav>
+  </div>
+
+  <main id="rows"></main>
+</div>
+
+<script>
+const ICONS = {
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chev: '<path d="M6 9l6 6 6-6"/>',
+  ext: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  warn: '<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/>',
+  up: '<path d="M6 15l6-6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+  db: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.5 0-1-.8-1.4-.8-2.3 0-.9.7-1.7 1.7-1.7H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>',
+  box: '<path d="M4 8l8-4 8 4-8 4z"/><path d="M4 8v8l8 4 8-4V8M12 12v8"/>',
+  dl: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', ul: '<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>'
+};
+const ic = (n, cls = 'icon') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
+const THEMES = [
+  { id: 'claude-light', name: 'Claude Light', mode: 'light', desc: 'Cream backgrounds (#FAF9F5 / #F0EEE6) with the terracotta accent. #D97757 is used for the brand mark; a deeper #B5532F carries buttons and focus so they pass AA.', sw: ['#F0EEE6','#FAF9F5','#D97757','#B5532F','#1F1E1D'], r: 'text 15.8 · muted 6.3 · link 5.3 · button 5.0' },
+  { id: 'slate-light', name: 'Slate', mode: 'light', desc: 'Cool blue-grey, white cards, indigo accent. Neutral and crisp.', sw: ['#EEF1F5','#FFFFFF','#3B5BDB','#475569','#0F172A'], r: 'text 17.9 · muted 7.6 · link 6.7 · button 5.7' },
+  { id: 'forest-light', name: 'Forest', mode: 'light', desc: 'Sage paper tones with a deep green accent. Calm, low glare.', sw: ['#E9EFE6','#FBFCF9','#2F7A4E','#46574B','#16231B'], r: 'text 15.8 · muted 7.5 · link 7.1 · button 6.5' },
+  { id: 'hc-light', name: 'High Contrast Light', mode: 'light', desc: 'Pure black on white, solid borders, strong blue links, 3 px focus rings, no shadows.', sw: ['#FFFFFF','#F0F0F0','#0038B8','#262626','#000000'], r: 'text 21 · muted 15.1 · link 9.3 · button 9.3' },
+  { id: 'claude-dark', name: 'Claude Dark', mode: 'dark', desc: 'Warm charcoal (#262624 / #1F1E1D) with the terracotta accent on buttons, unread dots and focus.', sw: ['#1F1E1D','#262624','#D97757','#B7B5A9','#F5F4EF'], r: 'text 13.8 · muted 7.4 · link 6.4 · button 5.3' },
+  { id: 'ocean-dark', name: 'Ocean', mode: 'dark', desc: 'Deep navy with a bright cyan accent. Cool and focused.', sw: ['#0B1622','#102030','#38BDF8','#9DB4C6','#E6F1F8'], r: 'text 14.4 · muted 7.7 · link 9.0 · button 8.8' },
+  { id: 'dusk-dark', name: 'Dusk', mode: 'dark', desc: 'Aubergine greys with a soft violet accent. Easy on the eyes late at night.', sw: ['#17151F','#201D2A','#A78BFA','#ADA5C2','#EEEAF6'], r: 'text 14.0 · muted 7.0 · link 7.6 · button 6.6' },
+  { id: 'hc-dark', name: 'High Contrast Dark', mode: 'dark', desc: 'White on black with a yellow accent, solid borders and 3 px focus rings.', sw: ['#000000','#141414','#FFD400','#E6E6E6','#FFFFFF'], r: 'text 21 · muted 16.8 · link 14.7 · button 14.7' },
+];
+
+// Fictional sample data
+const SRC = { biorxiv: 'bioRxiv', medrxiv: 'medRxiv', pubmed: 'PubMed', openalex: 'OpenAlex', arxiv: 'arXiv' };
+const TOPICS = [
+  { id: 't1', name: 'GPR182', query: 'GPR182 OR ACKR5 OR "G protein-coupled receptor 182"', entries: [
+    { id: 'a', title: 'GPR182 scavenges CXCL12 at lymph node sinuses to shape lymphocyte egress', authors: 'Hartmann L, Okafor C, Lindqvist M, Duarte P, Nakamura S, et al.', date: '22 Oct 2026', src: 'biorxiv', journal: 'Immunity', jsrc: 'pubmed', unread: true,
+      abs: 'Atypical chemokine receptors control chemokine availability by internalizing ligands without coupling to G proteins. Using lineage-specific deletion and intravital imaging, we show that GPR182 on lymph node sinusoidal endothelium continuously removes CXCL12 and CXCL13, keeping the gradients that guide lymphocyte exit. Loss of GPR182 raised interstitial chemokine levels and delayed egress by 40%.' },
+    { id: 'b', title: 'Structural basis of broad chemokine recognition by the scavenger receptor GPR182', authors: 'Feng Y, Morales A, Ibrahim K, Schultz T', date: '21 Oct 2026', src: 'openalex', journal: 'Nature Structural & Molecular Biology', unread: true,
+      abs: 'We report cryo-EM structures of human GPR182 bound to CXCL10, CXCL12 and CXCL13 at 2.9–3.3 Å resolution. A wide, electronegative pocket and a flexible N-terminus explain the receptor\'s promiscuity. Mutations that disrupt the pocket abolished ligand uptake while leaving β-arrestin recruitment intact.' },
+    { id: 'c', title: 'Endothelial GPR182 expression marks a hepatic sinusoidal niche in regeneration', authors: 'Varga E, Thompson R, Achterberg J, Liu H, Mensah K', date: '19 Oct 2026', src: 'pubmed', journal: 'Hepatology', unread: false,
+      abs: 'Single-cell profiling of regenerating mouse liver identified a GPR182-high sinusoidal endothelial population that expands after partial hepatectomy. These cells sit near proliferating hepatocytes and express angiocrine factors. Their depletion slowed liver mass recovery.' },
+    { id: 'd', title: 'GPR182 variants and circulating chemokine levels in a population cohort', authors: 'Rossi G, Andersen B, Kaur P, Whitfield S, et al.', date: '17 Oct 2026', src: 'medrxiv', unread: false,
+      abs: 'In 41,208 participants with proteomic data, rare loss-of-function variants in GPR182 were associated with higher plasma CXCL10 and CXCL12. The variants were not linked to cardiovascular events, suggesting the receptor is tolerated as a therapeutic target.' },
+  ]},
+  { id: 't2', name: 'Atypical chemokine receptors', query: '"atypical chemokine receptor" OR ACKR1 OR ACKR3 OR ACKR4', entries: [
+    { id: 'e', title: 'ACKR3 limits opioid peptide signalling in the brainstem', authors: 'Moreau J, Patel N, Szabo A, Grünewald K', date: '22 Oct 2026', src: 'biorxiv', unread: true, abs: 'ACKR3 binds endogenous opioid peptides without activating G proteins. We show it acts as a sink in brainstem respiratory centres, and that blocking it increases peptide availability.' },
+    { id: 'f', title: 'Chemokine scavenging by ACKR4 restrains dendritic cell migration in inflamed skin', authors: 'Bianchi F, Oduya T, Svensson L, Chen W, et al.', date: '20 Oct 2026', src: 'pubmed', journal: 'J Exp Med', unread: true, abs: 'ACKR4 on keratinocytes and lymphatic endothelium shaped CCL19/CCL21 gradients during contact hypersensitivity.' },
+    { id: 'g', title: 'A pan-ACKR β-arrestin biosensor panel for ligand profiling', authors: 'Kowalski M, Haddad R, Ito Y', date: '18 Oct 2026', src: 'openalex', journal: 'ACS Pharmacol Transl Sci', unread: true, abs: 'We built NanoBiT biosensors for ACKR1–4 and GPR182 and profiled 52 chemokines.' },
+  ]},
+  { id: 't3', name: 'Lymphatic endothelium', query: '"lymphatic endothelial" AND (scRNA-seq OR "single cell")', entries: [
+    { id: 'h', title: 'A single-cell atlas of human lymph node lymphatic endothelium across age', authors: 'Nordin S, Abara U, Weiss D, et al.', date: '21 Oct 2026', src: 'biorxiv', unread: true, abs: 'We profiled 186,000 lymphatic endothelial cells from 64 donors and found age-linked loss of ceiling-lining subsets.' },
+  ]},
+];
+
+function badge(src, label) { return `<span class="badge" style="--c: var(--src-${src})">${label}</span>`; }
+
+function entryHTML(e, tid, mid) {
+  const absId = `${mid}-${tid}-${e.id}-abs`;
+  const links = e.journal && e.src !== 'pubmed' && e.src !== 'openalex'
+    ? `<a href="#" onclick="return false">Preprint ${ic('ext')}</a><a href="#" onclick="return false">Journal ${ic('ext')}</a>`
+    : `<a href="#" onclick="return false">DOI ${ic('ext')}</a>`;
+  const badges = e.journal && e.src !== 'pubmed' && e.src !== 'openalex'
+    ? badge(e.src, SRC[e.src]) + badge('journal', e.journal)
+    : e.journal ? badge('journal', e.journal) + badge(e.src, SRC[e.src]) : badge(e.src, SRC[e.src]);
+  return `<article class="entry ${e.unread ? 'unread' : ''}" data-id="${e.id}" aria-label="${e.unread ? 'Unread: ' : ''}${e.title}">
+    <div class="e-top">
+      <h3 class="e-title"><a href="#" onclick="return false">${e.title}</a></h3>
+      <button class="btn btn-ghost btn-icon e-dismiss" data-act="dismiss" aria-label="Dismiss" title="Dismiss">${ic('x')}</button>
+    </div>
+    <p class="e-authors">${e.authors}</p>
+    <div class="e-meta"><span>${e.date}</span>${badges}<span class="e-links">${links}</span></div>
+    <button class="abs-toggle" data-act="abs" aria-expanded="false" aria-controls="${absId}">Abstract ${ic('chev')}</button>
+    <div class="abs" id="${absId}"><div><p>${e.abs}</p></div></div>
+  </article>`;
+}
+
+function popupHTML(m) {
+  const t = m.topics.find(x => x.id === m.active);
+  const total = m.topics.reduce((n, x) => n + x.entries.length, 0);
+  return `
+  <div class="pp-head">
+    <div class="logo">${ic('doc')}</div>
+    <div class="pp-title"><strong>New Papers</strong><span>Last checked today, 08:42</span></div>
+    <button class="btn btn-sm" data-act="refresh">${ic('refresh')}Refresh now</button>
+    <button class="btn btn-ghost btn-icon" aria-label="Settings" title="Settings">${ic('gear')}</button>
+  </div>
+  ${m.banner ? `<div class="banner" role="status">${ic('warn')}<p>OpenAlex didn't respond. Showing saved results; it will be retried on the next start.</p><button data-act="hidebanner" aria-label="Hide message">Hide</button></div>` : ''}
+  <div class="tabs" role="tablist" aria-label="Topics">
+    ${m.topics.map(x => `<button class="tab" role="tab" data-act="tab" data-t="${x.id}" aria-selected="${x.id === m.active}">${x.name}<span class="count ${x.entries.length ? '' : 'zero'}" aria-label="${x.entries.length} unread">${x.entries.length}</span></button>`).join('')}
+  </div>
+  <div class="topic-bar"><span class="q" title="${t.query.replace(/"/g, '&quot;')}">${t.query}</span>
+    ${t.entries.length ? `<button class="btn btn-sm btn-ghost" data-act="dismissall">${ic('x')}Dismiss all</button>` : ''}</div>
+  <div class="list" role="tabpanel">
+    ${t.entries.length ? t.entries.map(e => entryHTML(e, t.id, m.id)).join('') : `<div class="empty"><strong>You're all caught up</strong>No new papers for “${t.name}” since the last check.</div>`}
+  </div>
+  <div class="pp-foot"><span>${total} unread across ${m.topics.length} topics</span><span>Europe PMC · PubMed · OpenAlex</span></div>`;
+}
+
+function optionsHTML(theme) {
+  const sw = id => THEMES.find(t => t.id === id).sw;
+  return `
+  <nav class="op-nav" aria-label="Settings sections">
+    <div class="op-brand"><div class="logo">${ic('doc')}</div>New Papers</div>
+    <button aria-current="true">${ic('list')}Topics</button>
+    <button>${ic('box')}Sources</button>
+    <button>${ic('palette')}Appearance</button>
+    <button>${ic('db')}Data</button>
+  </nav>
+  <div class="op-main">
+    <section class="op-sec">
+      <div class="sec-head"><div><h3>Topics</h3><p class="sub">Drag or use the arrows to reorder. A new topic first searches the last 2 months.</p></div>
+        <button class="btn btn-primary btn-sm">${ic('plus')}Add topic</button></div>
+      <div class="card">
+        <div class="trow">
+          <div class="grip"><button aria-label="Move up" disabled>${ic('up')}</button><button aria-label="Move down">${ic('down')}</button></div>
+          <div class="tinfo"><strong>GPR182</strong><code>GPR182 OR ACKR5 OR "G protein-coupled receptor 182"</code></div>
+          <button class="btn btn-ghost btn-icon" aria-label="Edit">${ic('edit')}</button>
+          <button class="btn btn-ghost btn-icon btn-danger" aria-label="Delete">${ic('trash')}</button>
+        </div>
+        <div class="trow" style="border-bottom:0">
+          <div class="grip"><button aria-label="Move up">${ic('up')}</button><button aria-label="Move down">${ic('down')}</button></div>
+          <div class="tinfo"><strong>Atypical chemokine receptors</strong><code>"atypical chemokine receptor" OR ACKR1 OR ACKR3 OR ACKR4</code></div>
+          <button class="btn btn-ghost btn-icon" aria-label="Edit" aria-expanded="true">${ic('edit')}</button>
+          <button class="btn btn-ghost btn-icon btn-danger" aria-label="Delete">${ic('trash')}</button>
+        </div>
+        <div class="edit">
+          <div class="field"><label>Name</label><input class="input" value="Atypical chemokine receptors"></div>
+          <div class="field"><label>Search query</label><input class="input mono" value='"atypical chemokine receptor" OR ACKR1 OR ACKR3 OR ACKR4'>
+            <span class="hint">Use "quoted phrases", AND, OR, NOT and parentheses. Sources that lack a boolean operator get a simplified query.</span></div>
+          <div class="field"><span class="lbl">Sources for this topic</span>
+            <div class="tri">
+              ${['Europe PMC','PubMed','OpenAlex','arXiv'].map((s, i) => `<span class="src">${s}<select aria-label="${s} for this topic"><option>${i === 3 ? 'Off (default)' : 'Default'}</option><option>On</option><option>Off</option></select></span>`).join('')}
+            </div></div>
+          <div class="edit-actions"><button class="btn btn-sm">Cancel</button><button class="btn btn-sm btn-primary">Save</button></div>
+        </div>
+        <div class="trow">
+          <div class="grip"><button aria-label="Move up">${ic('up')}</button><button aria-label="Move down" disabled>${ic('down')}</button></div>
+          <div class="tinfo"><strong>Lymphatic endothelium</strong><code>"lymphatic endothelial" AND (scRNA-seq OR "single cell")</code>
+            <div class="mini-src"><span>Europe PMC</span><span>PubMed</span><span class="off">OpenAlex</span></div></div>
+          <button class="btn btn-ghost btn-icon" aria-label="Edit">${ic('edit')}</button>
+          <button class="btn btn-ghost btn-icon btn-danger" aria-label="Delete">${ic('trash')}</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="op-sec">
+      <h3>Sources</h3><p class="sub">These global switches apply to every topic unless the topic overrides them.</p>
+      <div class="card">
+        ${[['Europe PMC','Preprints (bioRxiv, medRxiv) plus PubMed/PMC', true],['PubMed','NCBI E-utilities, by Entrez date', true],['OpenAlex','Broad DOI-based journal coverage', true],['arXiv (q-bio)','Physics- and computation-adjacent work', false]]
+          .map(([n, d, on]) => `<div class="srow"><div class="tinfo"><strong>${n}</strong><span>${d}</span></div><button class="switch" role="switch" data-act="switch" aria-checked="${on}" aria-label="${n}"></button></div>`).join('')}
+        <div class="grid2" style="border-top:1px solid var(--border)">
+          <div class="field"><label>Contact email (OpenAlex <code>mailto</code>)</label><input class="input" value="you@example.org"></div>
+          <div class="field"><label>NCBI API key (optional)</label><input class="input mono" type="password" value="xxxxxxxxxxxxxxxx"><span class="hint">Raises the PubMed limit from 3 to 10 requests/s.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="op-sec">
+      <h3>Appearance</h3><p class="sub">Theme for the popup, the startup window and this page.</p>
+      <div class="card">
+        <div class="theme-picker" role="radiogroup" aria-label="Theme">
+          ${THEMES.map(t => `<button class="tp" role="radio" aria-checked="${t.id === theme.id}"><i>${sw(t.id).slice(0, 4).map(c => `<b style="background:${c}"></b>`).join('')}</i>${t.name}</button>`).join('')}
+        </div>
+        <div class="auto-row"><button class="switch" role="switch" data-act="switch" aria-checked="false" aria-label="Auto theme"></button>
+          Auto (follow system): light <select aria-label="Light theme"><option>Claude Light</option></select> dark <select aria-label="Dark theme"><option>Claude Dark</option></select></div>
+      </div>
+    </section>
+
+    <section class="op-sec">
+      <h3>Data</h3><p class="sub">Back up or move your topics and settings. Your API key is left out unless you tick the box.</p>
+      <div class="card"><div class="data-row">
+        <button class="btn btn-sm">${ic('dl')}Export JSON</button><button class="btn btn-sm">${ic('ul')}Import JSON</button>
+        <span class="muted">142 entries · 318 dismissed · 96 KB used</span></div></div>
+    </section>
+  </div>`;
+}
+
+// Render
+const rows = document.getElementById('rows');
+const jump = document.getElementById('jump');
+const state = {};
+THEMES.forEach(t => {
+  const m = state[t.id] = { id: t.id, active: 't1', banner: true, topics: structuredClone(TOPICS) };
+  const total = m.topics.reduce((n, x) => n + x.entries.length, 0);
+  jump.insertAdjacentHTML('beforeend', `<a href="#row-${t.id}">${t.name}</a>`);
+  rows.insertAdjacentHTML('beforeend', `
+  <section class="theme-row" id="row-${t.id}" data-mode="${t.mode}" aria-labelledby="h-${t.id}">
+    <div class="theme-head">
+      <h2 id="h-${t.id}">${t.name}</h2><span class="tag">${t.mode}</span>
+      <span class="swatches" aria-hidden="true">${t.sw.map(c => `<span style="background:${c}" title="${c}"></span>`).join('')}</span>
+      <span class="ratios">Contrast: ${t.r}</span>
+      <p class="desc">${t.desc}</p>
+    </div>
+    <div class="mocks">
+      <div class="slot-popup"><p class="frame-label">Toolbar popup / startup window</p>
+        <div class="ext popup" data-theme="${t.id}" data-mock="${t.id}">${popupHTML(m)}</div></div>
+      <div class="slot-badge slot-popup"><p class="frame-label">Toolbar badge</p>
+        <div class="tb" data-theme="${t.id}"><div class="ico"><div class="logo">${ic('doc')}</div><b data-badge="${t.id}">${total}</b></div><small>Unread across all topics</small></div></div>
+      <div class="slot-options"><p class="frame-label">Options page</p>
+        <div class="ext options" data-theme="${t.id}">${optionsHTML(t)}</div></div>
+    </div>
+  </section>`);
+});
+
+function rerender(id, focusSel) {
+  const el = document.querySelector(`[data-mock="${id}"]`);
+  el.innerHTML = popupHTML(state[id]);
+  document.querySelector(`[data-badge="${id}"]`).textContent = state[id].topics.reduce((n, x) => n + x.entries.length, 0);
+  if (focusSel) el.querySelector(focusSel)?.focus();
+}
+
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'switch') { b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true'); return; }
+  const mock = b.closest('[data-mock]'); if (!mock) return;
+  const m = state[mock.dataset.mock];
+  const t = m.topics.find(x => x.id === m.active);
+  if (act === 'tab') { m.active = b.dataset.t; rerender(m.id, `.tab[data-t="${m.active}"]`); }
+  else if (act === 'abs') {
+    const open = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', open);
+    document.getElementById(b.getAttribute('aria-controls')).classList.toggle('open', open);
+  } else if (act === 'dismiss') {
+    const card = b.closest('.entry'); card.classList.add('leaving');
+    setTimeout(() => { t.entries = t.entries.filter(e => e.id !== card.dataset.id); rerender(m.id, '.e-dismiss, .tab[aria-selected="true"]'); }, 180);
+  } else if (act === 'dismissall') { t.entries = []; rerender(m.id, '.tab[aria-selected="true"]'); }
+  else if (act === 'hidebanner') { m.banner = false; rerender(m.id, '.tab[aria-selected="true"]'); }
+  else if (act === 'refresh') { m.topics = structuredClone(TOPICS); m.banner = true; rerender(m.id, '[data-act="refresh"]'); }
+});
+
+// Arrow-key navigation inside each tablist
+document.addEventListener('keydown', ev => {
+  const tab = ev.target.closest('.tab'); if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(ev.key)) return;
+  const tabs = [...tab.parentElement.children]; let i = tabs.indexOf(tab);
+  i = ev.key === 'Home' ? 0 : ev.key === 'End' ? tabs.length - 1 : (i + (ev.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  ev.preventDefault(); tabs[i].click();
+});
+
+// View controls
+function seg(id, fn) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    fn(b.dataset.v);
+  });
+}
+seg('f-mode', v => document.querySelectorAll('.theme-row').forEach(r => r.hidden = v !== 'all' && r.dataset.mode !== v));
+seg('f-show', v => document.querySelectorAll('.mocks').forEach(m => { m.classList.toggle('hide-popup', v === 'options'); m.classList.toggle('hide-options', v === 'popup'); }));
+seg('f-page', v => v === 'auto' ? document.documentElement.removeAttribute('data-page') : document.documentElement.setAttribute('data-page', v));
+// Optional deep link: ?mode=light|dark
+const qm = new URLSearchParams(location.search).get('mode');
+if (qm) document.querySelector(`#f-mode button[data-v="${qm}"]`)?.click();
+</script>
+</body>
+</html>

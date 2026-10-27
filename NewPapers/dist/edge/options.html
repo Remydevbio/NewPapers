@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Papers — Settings</title>
+<link rel="stylesheet" href="themes.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to settings</a>
+<div class="options">
+  <nav class="op-nav" aria-label="Settings sections">
+    <div class="op-brand"><div class="logo" id="logo"></div>New Papers</div>
+    <a href="#topics" data-nav="topics" aria-current="true"><span data-icon="list"></span>Topics</a>
+    <a href="#sources" data-nav="sources"><span data-icon="box"></span>Sources</a>
+    <a href="#startup" data-nav="startup"><span data-icon="power"></span>Startup</a>
+    <a href="#links" data-nav="links"><span data-icon="ext"></span>Links</a>
+    <a href="#appearance" data-nav="appearance"><span data-icon="palette"></span>Appearance</a>
+    <a href="#data" data-nav="data"><span data-icon="db"></span>Data</a>
+  </nav>
+  <main class="op-main" id="main" tabindex="-1">
+    <div id="perm-banner"></div>
+
+    <section class="op-sec" id="topics" aria-labelledby="h-topics">
+      <div class="sec-head">
+        <div><h2 id="h-topics">Topics</h2>
+          <p class="sub">Drag rows or use the arrows to reorder. A new topic first searches the last 2 months; after that, each browser start fetches what is new since the last check.</p></div>
+        <button class="btn btn-primary btn-sm" id="add-topic" type="button"><span data-icon="plus"></span>Add topic</button>
+      </div>
+      <div class="card" id="topic-list"></div>
+    </section>
+
+    <section class="op-sec" id="sources" aria-labelledby="h-sources">
+      <h2 id="h-sources">Sources</h2>
+      <p class="sub">These switches apply to every topic unless the topic overrides them.</p>
+      <div class="card">
+        <div id="source-list"></div>
+        <div class="grid2 bt">
+          <div class="field">
+            <label for="epmc-scope">Europe PMC records</label>
+            <select class="input" id="epmc-scope">
+              <option value="preprints">Preprints only (SRC:PPR)</option>
+              <option value="all">Preprints and PubMed records</option>
+            </select>
+            <span class="hint">Europe PMC indexes bioRxiv, medRxiv and other preprint servers.</span>
+          </div>
+          <div class="field">
+            <label for="email">Contact email</label>
+            <input class="input" id="email" type="email" autocomplete="email" placeholder="you@example.org">
+            <span class="hint">Sent as <code>mailto</code> to OpenAlex and as <code>email</code> to NCBI/Europe PMC, as their guidelines ask.</span>
+          </div>
+          <div class="field">
+            <label for="ncbi-key">NCBI API key (optional)</label>
+            <input class="input mono" id="ncbi-key" type="password" autocomplete="off" spellcheck="false">
+            <span class="hint">Raises the PubMed limit from 3 to 10 requests per second.</span>
+          </div>
+          <div class="field">
+            <label for="openalex-key">OpenAlex API key (optional)</label>
+            <input class="input mono" id="openalex-key" type="password" autocomplete="off" spellcheck="false">
+            <span class="hint">Without a key OpenAlex shares a small free daily budget per network. A free key is available at openalex.org/settings/api; it only works after you click the link in OpenAlex's confirmation email. A rejected key is ignored and reported.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="op-sec" id="startup" aria-labelledby="h-startup">
+      <h2 id="h-startup">Startup</h2>
+      <p class="sub">What happens each time the browser starts.</p>
+      <div class="card pad" role="radiogroup" aria-labelledby="h-startup" id="startup-group">
+        <label class="radio"><input type="radio" name="startup" value="always"> Check for new papers and open the results window</label>
+        <label class="radio"><input type="radio" name="startup" value="new"> Open the window only when there are new papers</label>
+        <label class="radio"><input type="radio" name="startup" value="never"> Only update the toolbar badge</label>
+      </div>
+    </section>
+
+    <section class="op-sec" id="links" aria-labelledby="h-links">
+      <h2 id="h-links">Links</h2>
+      <p class="sub">What happens when you click a paper in the list.</p>
+      <div class="card pad" role="radiogroup" aria-labelledby="h-links" id="links-group">
+        <label class="radio"><input type="radio" name="links" value="background"> Open in a background tab and keep the list open (open several papers, read them later)</label>
+        <label class="radio"><input type="radio" name="links" value="foreground"> Switch to the new tab (the toolbar popup closes)</label>
+      </div>
+    </section>
+
+    <section class="op-sec" id="appearance" aria-labelledby="h-appearance">
+      <h2 id="h-appearance">Appearance</h2>
+      <p class="sub">Theme for the popup, the startup window and this page.</p>
+      <div class="card">
+        <div class="theme-picker" id="theme-picker" role="radiogroup" aria-label="Theme"></div>
+        <div class="auto-row">
+          <span>When “Auto” is selected, use</span>
+          <label>light <select id="auto-light"></select></label>
+          <label>dark <select id="auto-dark"></select></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="op-sec" id="data" aria-labelledby="h-data">
+      <h2 id="h-data">Data</h2>
+      <p class="sub">Back up or move your topics and settings as JSON.</p>
+      <div class="card">
+        <div class="data-row">
+          <button class="btn btn-sm" id="export" type="button"><span data-icon="dl"></span>Export JSON</button>
+          <button class="btn btn-sm" id="import" type="button"><span data-icon="ul"></span>Import JSON</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+          <label class="check"><input type="checkbox" id="export-keys"> Include API keys</label>
+          <span class="muted" id="usage"></span>
+        </div>
+        <div class="data-row bt">
+          <button class="btn btn-sm" id="refresh-all" type="button"><span data-icon="refresh"></span>Refresh all now</button>
+          <button class="btn btn-sm" id="open-window" type="button"><span data-icon="window"></span>Open results window</button>
+          <span class="muted" id="last-run"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="options.js"></script>
+</body>
+</html>

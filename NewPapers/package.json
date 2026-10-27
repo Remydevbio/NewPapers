@@ -1,0 +1,25 @@
+{
+  "name": "new-papers-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-browser extension that shows newly published papers for saved search topics at browser start.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/build.mjs --zip",
+    "test": "node --test \"test/unit/*.test.mjs\"",
+    "test:e2e:chrome": "node test/e2e/chrome.e2e.mjs",
+    "test:e2e:firefox": "node test/e2e/firefox.e2e.mjs",
+    "lint:firefox": "web-ext lint --source-dir dist/firefox",
+    "run:firefox": "web-ext run --source-dir dist/firefox --firefox=/usr/bin/firefox",
+    "fixtures": "node scripts/record-fixtures.mjs"
+  },
+  "dependencies": {
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
+    "web-ext": "^10.8.0"
+  }
+}
