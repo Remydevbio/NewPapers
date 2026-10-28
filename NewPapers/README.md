@@ -39,6 +39,8 @@ Requires Chrome or Edge 116+ and Firefox 140+ (Firefox for Android 142+).
 5. **Refresh now** in the popup checks again on demand. The header shows when the last check ran.
 6. If a source fails or you're offline, the list is kept, a small warning appears, and the source is retried on the next start from its last successful date.
 7. **History** (next to Refresh now) lists the last 10 checks with date and time, what started each one, and how long it took. For each topic and source it shows whether the search worked, how many results it returned, the date window it searched and the error the API gave (for example `HTTP 503: Search service is temporarily unavailable`). Esc closes it.
+8. **To read:** the bookmark button on a paper saves it to the **To read** tab, and the paper gets a small blue *To read* tag. Saved papers stay in To read even after you dismiss them from their topic, or delete the topic. Click the bookmark again, or ✕ in the To read tab, to remove a paper from the list.
+9. **Select** (in the bar above the list) shows a checkbox on each paper, so you can pick several and **Dismiss** them or add them **To read** in one go. In the To read tab the same mode removes several papers. **All** selects the whole list. Esc or **Done** leaves selection mode.
 
 ### Options
 - **Topics:** add, edit, rename, delete, and reorder (drag or arrow buttons). Each topic can turn individual sources on or off.
@@ -51,7 +53,7 @@ Requires Chrome or Edge 116+ and Firefox 140+ (Firefox for Android 142+).
 - **Startup:** open the window every time, only when there are new papers, or never (badge only).
 - **Links:** by default a paper opens in a **background tab**, so the popup or results window stays open and you can open several papers in a row. Opened entries are marked "✓ Opened". Alternatively, choose to switch to the new tab (the toolbar popup then closes, as browsers close popups when they lose focus).
 - **Appearance:** 8 themes (Claude Light, Slate, Forest, High Contrast Light, Claude Dark, Ocean, Dusk, High Contrast Dark), or **Auto**, which follows the system using a light/dark pair you choose.
-- **Data:** export or import topics and settings as JSON. API keys are left out of exports unless you tick the box.
+- **Data:** export or import topics, the To read list and settings as JSON. API keys are left out of exports unless you tick the box.
 
 ## Data sources
 Each source is an adapter in `src/lib/sources/` with the interface `search(query, fromDate, toDate, ctx) → normalized records[]`. To add a source, write an adapter and list it in `src/lib/sources/index.js`.

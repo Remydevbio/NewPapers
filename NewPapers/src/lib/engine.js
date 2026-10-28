@@ -12,6 +12,11 @@ import { validateQuery } from './query.js';
 /** Number of past runs kept in meta.history for the check history view. */
 export const HISTORY_RUNS = 10;
 
+/** True when the entry is the same paper as a saved to-read item (shared id or identity key). */
+export function inToRead(toRead, entry) {
+  return toRead.some((t) => t.id === entry.id || t.keys?.some((k) => entry.keys?.includes(k)));
+}
+
 export function unreadCounts(state) {
   const counts = {};
   let total = 0;
@@ -164,17 +169,50 @@ export function createEngine({ area, sources = SOURCES, fetchImpl, now = () => D
     isRunning: () => !!running,
 
     dismiss(topicId, entryId) {
+      return this.dismissMany(topicId, [entryId]).then((n) => n > 0);
+    },
+
+    /** Dismiss several entries of one topic; returns how many were removed. */
+    dismissMany(topicId, entryIds) {
       return mutex(async () => {
         const state = await loadAll(area);
+        const ids = new Set(entryIds);
         const list = state.entries[topicId] || [];
-        const entry = list.find((e) => e.id === entryId);
-        if (!entry) return false;
+        const gone = list.filter((e) => ids.has(e.id));
+        if (!gone.length) return 0;
         const d = { ...(state.dismissed[topicId] || {}) };
-        for (const k of entry.keys) d[k] = now();
-        state.entries[topicId] = list.filter((e) => e !== entry);
+        for (const e of gone) for (const k of e.keys) d[k] = now();
+        state.entries[topicId] = list.filter((e) => !ids.has(e.id));
         state.dismissed[topicId] = d;
         await saveParts(area, { entries: state.entries, dismissed: state.dismissed });
-        return true;
+        return gone.length;
+      });
+    },
+
+    /** Save copies of entries to the to-read list (newest first); returns how many were added. */
+    addToRead(topicId, entryIds) {
+      return mutex(async () => {
+        const state = await loadAll(area);
+        const topic = state.topics.find((t) => t.id === topicId);
+        const ids = new Set(entryIds);
+        const added = [];
+        for (const e of state.entries[topicId] || []) {
+          if (!ids.has(e.id) || inToRead(state.toRead, e) || inToRead(added, e)) continue;
+          added.push({ ...e, seen: true, topicId, topicName: topic?.name || '', savedAt: now() });
+        }
+        if (added.length) await saveParts(area, { toRead: [...added, ...state.toRead] });
+        return added.length;
+      });
+    },
+
+    /** Remove items from the to-read list by their ids; returns how many were removed. */
+    removeToRead(ids) {
+      return mutex(async () => {
+        const state = await loadAll(area);
+        const drop = new Set(ids);
+        const toRead = state.toRead.filter((t) => !drop.has(t.id));
+        if (toRead.length !== state.toRead.length) await saveParts(area, { toRead });
+        return state.toRead.length - toRead.length;
       });
     },
 

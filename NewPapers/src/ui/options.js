@@ -3,6 +3,7 @@ import { browser, h, icon, initTheme, formatWhen, send } from './common.js';
 import { SOURCES } from '../lib/sources/index.js';
 import { THEMES, withDefaults, makeTopic, topicSourceEnabled } from '../lib/settings.js';
 import { validateQuery } from '../lib/query.js';
+import { inToRead } from '../lib/engine.js';
 
 const area = browser.storage.local;
 const $ = (id) => document.getElementById(id);
@@ -265,14 +266,22 @@ document.querySelectorAll('input[name="startup"]').forEach((r) => r.addEventList
 document.querySelectorAll('input[name="links"]').forEach((r) => r.addEventListener('change', () => saveSettings({ openLinksInBackground: r.value === 'background' })));
 
 // ---------- data ----------
-function buildExport(topicsIn, settingsIn, includeKeys) {
+function buildExport(topicsIn, settingsIn, includeKeys, toRead = []) {
   const s = { ...settingsIn };
   if (!includeKeys) { delete s.ncbiApiKey; delete s.openalexApiKey; }
-  return { format: 'new-papers-export', version: 1, exportedAt: new Date().toISOString(), topics: topicsIn, settings: s };
+  return { format: 'new-papers-export', version: 1, exportedAt: new Date().toISOString(), topics: topicsIn, settings: s, toRead };
 }
 
-function doExport() {
-  const data = buildExport(topics, settings, $('export-keys').checked);
+/** Keep only well-formed saved papers from an import file. */
+function validToRead(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((t) => t && typeof t.id === 'string' && typeof t.title === 'string' && Array.isArray(t.keys) && Array.isArray(t.versions))
+    .map((t) => ({ ...t, authors: Array.isArray(t.authors) ? t.authors : [], abstract: typeof t.abstract === 'string' ? t.abstract : '', sources: Array.isArray(t.sources) ? t.sources : [] }));
+}
+
+async function doExport() {
+  const { toRead = [] } = await area.get('toRead');
+  const data = buildExport(topics, settings, $('export-keys').checked, toRead);
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = h('a', { href: url, download: `new-papers-${new Date().toISOString().slice(0, 10)}.json` });
@@ -280,7 +289,7 @@ function doExport() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast(`Exported ${topics.length} topics`);
+  toast(`Exported ${topics.length} topics${toRead.length ? ` and ${toRead.length} to read` : ''}`);
 }
 
 async function doImport(file) {
@@ -308,9 +317,12 @@ async function doImport(file) {
   const patch = Object.fromEntries(Object.entries(s).filter(([k]) => allowed.includes(k)));
   settings = withDefaults({ ...settings, ...patch, sources: { ...settings.sources, ...(patch.sources || {}) } });
   await area.set({ settings });
+  const { toRead = [] } = await area.get('toRead');
+  const newSaved = validToRead(data.toRead).filter((t) => !inToRead(toRead, t));
+  if (newSaved.length) await area.set({ toRead: [...toRead, ...newSaved] });
   await saveTopics([...byId.values()], changed);
   renderAll();
-  toast(`Imported ${incoming.length} topics${invalid ? ` (${invalid} skipped as invalid)` : ''}`);
+  toast(`Imported ${incoming.length} topics${newSaved.length ? ` and ${newSaved.length} to read` : ''}${invalid ? ` (${invalid} skipped as invalid)` : ''}`);
 }
 
 $('export').addEventListener('click', doExport);

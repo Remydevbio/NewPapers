@@ -1674,7 +1674,9 @@
     grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     window: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    bookmark: '<path d="M7 4h10v16l-5-3.5L7 20z"/>',
+    select: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'
   };
   function icon(name, cls = "icon") {
     const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${ICONS[name]}</svg>`, "image/svg+xml");
@@ -1744,6 +1746,14 @@
   }
   function send(type, payload = {}) {
     return import_webextension_polyfill.default.runtime.sendMessage({ type, ...payload });
+  }
+
+  // src/lib/dedupe.js
+  var DISMISSED_TTL_MS = 365 * 24 * 60 * 60 * 1e3;
+
+  // src/lib/engine.js
+  function inToRead(toRead, entry) {
+    return toRead.some((t) => t.id === entry.id || t.keys?.some((k) => entry.keys?.includes(k)));
   }
 
   // src/ui/options.js
@@ -2075,16 +2085,21 @@
   $("auto-dark").addEventListener("change", (e) => saveSettings({ autoDark: e.target.value }));
   document.querySelectorAll('input[name="startup"]').forEach((r) => r.addEventListener("change", () => saveSettings({ openOnStartup: r.value })));
   document.querySelectorAll('input[name="links"]').forEach((r) => r.addEventListener("change", () => saveSettings({ openLinksInBackground: r.value === "background" })));
-  function buildExport(topicsIn, settingsIn, includeKeys) {
+  function buildExport(topicsIn, settingsIn, includeKeys, toRead = []) {
     const s = { ...settingsIn };
     if (!includeKeys) {
       delete s.ncbiApiKey;
       delete s.openalexApiKey;
     }
-    return { format: "new-papers-export", version: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), topics: topicsIn, settings: s };
+    return { format: "new-papers-export", version: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), topics: topicsIn, settings: s, toRead };
   }
-  function doExport() {
-    const data = buildExport(topics, settings, $("export-keys").checked);
+  function validToRead(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter((t) => t && typeof t.id === "string" && typeof t.title === "string" && Array.isArray(t.keys) && Array.isArray(t.versions)).map((t) => ({ ...t, authors: Array.isArray(t.authors) ? t.authors : [], abstract: typeof t.abstract === "string" ? t.abstract : "", sources: Array.isArray(t.sources) ? t.sources : [] }));
+  }
+  async function doExport() {
+    const { toRead = [] } = await area.get("toRead");
+    const data = buildExport(topics, settings, $("export-keys").checked, toRead);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = h("a", { href: url, download: `new-papers-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json` });
@@ -2092,7 +2107,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    toast(`Exported ${topics.length} topics`);
+    toast(`Exported ${topics.length} topics${toRead.length ? ` and ${toRead.length} to read` : ""}`);
   }
   async function doImport(file) {
     let data;
@@ -2135,9 +2150,12 @@
     const patch = Object.fromEntries(Object.entries(s).filter(([k]) => allowed.includes(k)));
     settings = withDefaults({ ...settings, ...patch, sources: { ...settings.sources, ...patch.sources || {} } });
     await area.set({ settings });
+    const { toRead = [] } = await area.get("toRead");
+    const newSaved = validToRead(data.toRead).filter((t) => !inToRead(toRead, t));
+    if (newSaved.length) await area.set({ toRead: [...toRead, ...newSaved] });
     await saveTopics([...byId.values()], changed);
     renderAll();
-    toast(`Imported ${incoming.length} topics${invalid ? ` (${invalid} skipped as invalid)` : ""}`);
+    toast(`Imported ${incoming.length} topics${newSaved.length ? ` and ${newSaved.length} to read` : ""}${invalid ? ` (${invalid} skipped as invalid)` : ""}`);
   }
   $("export").addEventListener("click", doExport);
   $("import").addEventListener("click", () => $("import-file").click());

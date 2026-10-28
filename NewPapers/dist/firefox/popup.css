@@ -89,3 +89,21 @@ body.in-window .popup { width: 100vw; height: 100vh; }
 .hi-win { grid-column: 2 / 4; font-size: 11px; color: var(--text-muted); }
 .hi-msg { grid-column: 2 / 4; font-size: 11.5px; color: var(--text); overflow-wrap: anywhere; margin: 0; }
 .hi-msg.err { color: var(--danger); margin-top: 4px; }
+
+.toread-tag {
+  display: none; align-items: center; gap: 3px; padding: 0 6px 0 4px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  color: var(--toread-fg); border: 1px solid currentColor; line-height: 16px;
+}
+.toread-tag .icon { width: 11px; height: 11px; fill: currentColor; stroke-width: 1.6; }
+.entry.saved .toread-tag { display: inline-flex; }
+.e-save { margin: -4px -2px 0 0; color: var(--text-muted); }
+.e-save[aria-pressed="true"] { color: var(--toread-fg); }
+.e-save[aria-pressed="true"] .icon { fill: currentColor; }
+.e-pick { margin: 3px 2px 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--accent-strong); cursor: pointer; }
+.entry.picked { border-color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent-strong); }
+.e-from { font-size: 11px; color: var(--text-muted); }
+.tab.toread .icon { width: 13px; height: 13px; color: var(--toread-fg); }
+.topic-bar .sel-all { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.topic-bar .sel-all input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent-strong); }
+.topic-bar .sel-count { flex: 1; min-width: 0; white-space: nowrap; }
+.topic-bar .q.plain { font-family: inherit; font-size: 12px; }

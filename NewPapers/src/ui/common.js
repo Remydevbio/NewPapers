@@ -28,6 +28,8 @@ const ICONS = {
   window: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  bookmark: '<path d="M7 4h10v16l-5-3.5L7 20z"/>',
+  select: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
 };
 
 /** Static, trusted SVG icon markup (never used with remote data). */

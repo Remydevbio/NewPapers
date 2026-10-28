@@ -1,7 +1,7 @@
 // Engine tests with fake sources and an in-memory storage area.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createEngine, HISTORY_RUNS } from '../../src/lib/engine.js';
+import { createEngine, HISTORY_RUNS, inToRead } from '../../src/lib/engine.js';
 import { memoryArea, loadAll } from '../../src/lib/store.js';
 import { rec } from './helpers.mjs';
 
@@ -206,4 +206,46 @@ test('markSeen clears the "new" flag only', async () => {
   const st = await loadAll(env.area);
   assert.equal(st.entries.t1[0].seen, true);
   assert.equal(st.entries.t1.length, 1);
+});
+
+test('to read: saved copies survive dismissal and are not duplicated', async () => {
+  const s = fakeSource('a', () => [rec({ doi: '10.1000/a', title: 'First paper about receptors' }), rec({ doi: '10.1000/b', title: 'Second paper about chemokines' })]);
+  const env = setup({ topics: [topic('t1')], sources: [s] });
+  const eng = env.make();
+  await eng.check();
+  const [a, b] = (await loadAll(env.area)).entries.t1;
+  assert.equal(await eng.addToRead('t1', [a.id]), 1);
+  assert.equal(await eng.addToRead('t1', [a.id]), 0, 'already saved');
+  await eng.dismiss('t1', a.id);
+  let st = await loadAll(env.area);
+  assert.equal(st.entries.t1.length, 1);
+  assert.equal(st.toRead.length, 1, 'kept after dismissal');
+  assert.equal(st.toRead[0].title, a.title);
+  assert.equal(st.toRead[0].topicName, 't1');
+  assert.ok(st.toRead[0].savedAt > 0);
+  assert.ok(inToRead(st.toRead, { id: 'other', keys: a.keys }), 'matched by identity key');
+  assert.ok(!inToRead(st.toRead, b));
+  // A topic deleted later does not remove its saved papers.
+  await env.area.set({ topics: [] });
+  await eng.prune();
+  st = await loadAll(env.area);
+  assert.equal(st.toRead.length, 1);
+  assert.equal(await eng.removeToRead([a.id]), 1);
+  assert.equal((await loadAll(env.area)).toRead.length, 0);
+});
+
+test('dismissMany removes only the chosen entries and remembers them', async () => {
+  const s = fakeSource('a', () => ['a', 'b', 'c'].map((x) => rec({ doi: `10.1000/${x}`, title: `Paper ${x} with a distinct and long title` })));
+  const env = setup({ topics: [topic('t1')], sources: [s] });
+  const eng = env.make();
+  await eng.check();
+  const list = (await loadAll(env.area)).entries.t1;
+  assert.equal(await eng.dismissMany('t1', [list[0].id, list[2].id, 'missing']), 2);
+  let st = await loadAll(env.area);
+  assert.deepEqual(st.entries.t1.map((e) => e.id), [list[1].id]);
+  env.tick(DAY);
+  await eng.check();
+  st = await loadAll(env.area);
+  assert.deepEqual(st.entries.t1.map((e) => e.id), [list[1].id], 'dismissed papers do not come back');
+  assert.equal(await eng.dismissMany('t1', []), 0);
 });

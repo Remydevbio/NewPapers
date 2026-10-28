@@ -3,12 +3,13 @@
 //   lastChecked: { [topicId]: { query, at, sources: { [sourceId]: ISO datetime } } }
 //   entries:     { [topicId]: entry[] }        current, not dismissed
 //   dismissed:   { [topicId]: { [key]: ms } }  set of dismissed identity keys
+//   toRead:      entry[] + { topicId, topicName, savedAt }  saved copies, kept after dismissal
 //   settings:    { theme, autoLight, autoDark, sources, email, ncbiApiKey, … }
 //   meta:        { lastRun: { at, ok, errors[], warnings[], trigger, report[] }, history[] (last runs), running, windowId }
 // `area` is browser.storage.local (or an in-memory fake in tests).
 import { withDefaults } from './settings.js';
 
-export const KEYS = ['topics', 'lastChecked', 'entries', 'dismissed', 'settings', 'meta'];
+export const KEYS = ['topics', 'lastChecked', 'entries', 'dismissed', 'toRead', 'settings', 'meta'];
 
 export async function loadAll(area) {
   const d = await area.get(KEYS);
@@ -17,6 +18,7 @@ export async function loadAll(area) {
     lastChecked: d.lastChecked || {},
     entries: d.entries || {},
     dismissed: d.dismissed || {},
+    toRead: Array.isArray(d.toRead) ? d.toRead : [],
     settings: withDefaults(d.settings),
     meta: d.meta || {},
   };

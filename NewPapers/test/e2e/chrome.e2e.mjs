@@ -133,7 +133,8 @@ await step('popup UI: tabs with counts, entries with badges, links and abstracts
   await popup.goto(`${base}/popup.html`);
   await popup.waitForSelector('.entry');
   const tabs = await popup.$$eval('.tab', (els) => els.map((e) => e.textContent));
-  assert.equal(tabs.length, 2);
+  assert.equal(tabs.length, 3, 'two topics + To read');
+  assert.match(tabs[2], /To read\s*0/);
   const st = await storage(sw);
   const first = st.topics[0];
   assert.match(tabs[0], new RegExp(`${first.name}\\s*${st.entries[first.id].length}`));
@@ -184,6 +185,80 @@ await step('dismiss one entry: removed from the list and remembered', async () =
   await popup.waitForFunction((id) => !document.querySelector(`.entry[data-id="${CSS.escape(id)}"]`), dismissedId);
   const count = await popup.$eval('.tab[aria-selected=true] .count', (c) => c.textContent);
   assert.equal(count, String(n0 - 1));
+});
+
+// The topic with the most entries (live results vary from day to day).
+async function biggestTopic() {
+  const st = await storage(sw);
+  const t = [...st.topics].sort((a, b) => (st.entries[b.id]?.length || 0) - (st.entries[a.id]?.length || 0))[0];
+  await popup.click(`.tab[data-focus="tab:${t.id}"]`);
+  await popup.waitForSelector('.entry');
+  return t;
+}
+
+await step('to read: bookmark adds a blue tag, the paper stays in To read after dismissal', async () => {
+  const st0 = await storage(sw);
+  const top = await biggestTopic();
+  const tid = top.id;
+  const card = popup.locator('.entry').first();
+  const id = await card.getAttribute('data-id');
+  const title = await card.locator('.e-title').textContent();
+  await card.locator('.e-save').click();
+  await waitFor(async () => (await storage(sw)).toRead.length === 1, { timeout: 5000, what: 'saved to read' });
+  const saved = popup.locator(`.entry[data-id="${id}"]`);
+  await saved.locator('.toread-tag').waitFor({ state: 'visible' });
+  assert.equal(await saved.locator('.e-save').getAttribute('aria-pressed'), 'true');
+  const tagColor = await saved.locator('.toread-tag').evaluate((el) => getComputedStyle(el).color);
+  assert.match(tagColor, /rgb\(29, 78, 216\)/, `blue tag (${tagColor})`);
+  assert.equal(await popup.$eval('.tab.toread .count', (c) => c.textContent), '1');
+  await popup.screenshot({ path: path.join(shots, 'popup-toread-tag.png') });
+  await saved.locator('.e-dismiss').click();
+  await waitFor(async () => !(await storage(sw)).entries[tid].some((e) => e.id === id), { timeout: 5000, what: 'dismissed' });
+  const st = await storage(sw);
+  assert.equal(st.toRead.length, 1, 'still in To read after dismissal');
+  assert.equal(st.toRead[0].id, id);
+  await popup.click('.tab.toread');
+  await popup.waitForSelector(`.entry[data-id="${id}"]`);
+  const text = await popup.textContent('#list');
+  assert.ok(text.includes(title.trim()), 'listed in the To read tab');
+  assert.match(text, new RegExp(`from ${top.name}`));
+  await popup.screenshot({ path: path.join(shots, 'popup-toread-tab.png') });
+  await popup.click(`.tab[data-focus="tab:${tid}"]`);
+  await popup.waitForSelector('.entry');
+});
+
+await step('select several papers: add 2 to To read, then dismiss 2 at once', async () => {
+  const tid = (await biggestTopic()).id;
+  const st0 = await storage(sw);
+  const n0 = st0.entries[tid].length;
+  assert.ok(n0 >= 4, `enough entries to select (${n0})`);
+  await popup.click('.topic-bar button:has-text("Select")');
+  await popup.waitForSelector('.e-pick');
+  assert.equal(await popup.$$eval('.e-dismiss', (b) => b.length), 0, 'single dismiss buttons hidden while selecting');
+  const ids = await popup.$$eval('.entry', (els) => els.slice(0, 4).map((e) => e.dataset.id));
+  await popup.locator('.e-pick').nth(0).check();
+  await popup.locator('.e-pick').nth(1).check();
+  assert.match(await popup.textContent('.sel-count'), /2 selected/);
+  assert.equal(await popup.$eval('.sel-all input', (i) => i.indeterminate), true);
+  await popup.screenshot({ path: path.join(shots, 'popup-select.png') });
+  await popup.click('.topic-bar button:has-text("To read")');
+  await waitFor(async () => (await storage(sw)).toRead.length === st0.toRead.length + 2, { timeout: 5000, what: 'bulk to read' });
+  assert.equal(await popup.$$eval('.e-pick', (b) => b.length), 0, 'selection mode ends after the action');
+  await popup.waitForSelector(`.entry[data-id="${ids[0]}"] .toread-tag`, { state: 'visible' });
+  await popup.click('.topic-bar button:has-text("Select")');
+  await popup.locator(`.entry[data-id="${ids[2]}"] .e-pick`).check();
+  await popup.locator(`.entry[data-id="${ids[3]}"] .e-pick`).check();
+  await popup.click('.topic-bar button:has-text("Dismiss")');
+  await waitFor(async () => (await storage(sw)).entries[tid].length === n0 - 2, { timeout: 5000, what: 'bulk dismiss' });
+  const st = await storage(sw);
+  assert.ok(!st.entries[tid].some((e) => e.id === ids[2] || e.id === ids[3]), 'the two chosen papers are gone');
+  assert.ok(st.entries[tid].some((e) => e.id === ids[0]), 'others kept');
+  for (const id of [ids[2], ids[3]]) assert.ok(Object.keys(st.dismissed[tid]).length > 0 && st0.entries[tid].find((e) => e.id === id).keys.every((k) => st.dismissed[tid][k]), 'dismissed keys stored');
+  await popup.waitForFunction(([a, b]) => !document.querySelector(`.entry[data-id="${CSS.escape(a)}"]`) && !document.querySelector(`.entry[data-id="${CSS.escape(b)}"]`), [ids[2], ids[3]]);
+  // Esc leaves selection mode.
+  await popup.click('.topic-bar button:has-text("Select")');
+  await popup.keyboard.press('Escape');
+  await popup.waitForSelector('.e-pick', { state: 'detached' });
 });
 
 await step('keyboard: tabs reachable, arrow keys switch topics, focus ring visible', async () => {
@@ -309,8 +384,8 @@ await step('dismiss all clears a topic for good', async () => {
   const st0 = await storage(sw);
   const tid = st0.topics[1].id;
   await win.click(`#tab-${tid}`);
-  await win.click('#topic-bar button');
-  await win.click('#topic-bar button'); // confirm
+  await win.click('#topic-bar button[data-focus^="all:"]');
+  await win.click('#topic-bar button[data-focus^="all:"]'); // confirm
   await waitFor(async () => (await storage(sw)).entries[tid].length === 0, { timeout: 5000, what: 'dismiss all' });
   await win.waitForSelector('.empty');
 });

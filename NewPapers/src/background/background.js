@@ -159,6 +159,9 @@ browser.runtime.onMessage.addListener((msg, sender) => {
     case 'refresh': return engine.check({ topicIds: msg.topicIds, trigger: 'manual' });
     case 'dismiss': return engine.dismiss(msg.topicId, msg.entryId);
     case 'dismissAll': return engine.dismissAll(msg.topicId);
+    case 'dismissMany': return engine.dismissMany(msg.topicId, msg.entryIds);
+    case 'addToRead': return engine.addToRead(msg.topicId, msg.entryIds);
+    case 'removeToRead': return engine.removeToRead(msg.ids);
     case 'markSeen': return engine.markSeen(msg.topicId);
     case 'openWindow': return openResultsWindow();
     case 'openUrl': return openUrl(msg.url);

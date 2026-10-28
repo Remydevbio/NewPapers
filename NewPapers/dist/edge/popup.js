@@ -1665,7 +1665,9 @@
     grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     window: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    bookmark: '<path d="M7 4h10v16l-5-3.5L7 20z"/>',
+    select: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'
   };
   function icon(name, cls = "icon") {
     const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${ICONS[name]}</svg>`, "image/svg+xml");
@@ -1743,7 +1745,7 @@
   }
 
   // src/lib/store.js
-  var KEYS = ["topics", "lastChecked", "entries", "dismissed", "settings", "meta"];
+  var KEYS = ["topics", "lastChecked", "entries", "dismissed", "toRead", "settings", "meta"];
   async function loadAll(area) {
     const d = await area.get(KEYS);
     return {
@@ -1751,6 +1753,7 @@
       lastChecked: d.lastChecked || {},
       entries: d.entries || {},
       dismissed: d.dismissed || {},
+      toRead: Array.isArray(d.toRead) ? d.toRead : [],
       settings: withDefaults(d.settings),
       meta: d.meta || {}
     };
@@ -1762,6 +1765,11 @@
     return [...entries].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.firstSeen - a.firstSeen);
   }
 
+  // src/lib/engine.js
+  function inToRead(toRead, entry) {
+    return toRead.some((t) => t.id === entry.id || t.keys?.some((k) => entry.keys?.includes(k)));
+  }
+
   // src/ui/popup.js
   var isWindow = new URLSearchParams(location.search).get("view") === "window";
   if (isWindow) document.body.classList.add("in-window");
@@ -1771,6 +1779,9 @@
   var expanded = /* @__PURE__ */ new Set();
   var newIds = {};
   var confirmAll = null;
+  var TOREAD = "__toread";
+  var selecting = null;
+  var picked = /* @__PURE__ */ new Set();
   var LS = {
     get(k) {
       try {
@@ -1851,8 +1862,14 @@
     if (e.pmid) out.push(link("PubMed", `https://pubmed.ncbi.nlm.nih.gov/${e.pmid}/`, { entryId: e.id }));
     return out;
   }
+  function savedItems(e) {
+    return state.toRead.filter((t) => t.id === e.id || t.keys?.some((k) => e.keys?.includes(k)));
+  }
   function renderEntry(e, topicId) {
     const isNew = newIds[topicId]?.has(e.id);
+    const inList = topicId === TOREAD;
+    const saved = inList || inToRead(state.toRead, e);
+    const picking = selecting === topicId;
     const absId = `abs-${hash(e.id)}`;
     const open = expanded.has(e.id);
     const main = e.versions.find((v) => v.kind === "article" && v.url) || e.versions.find((v) => v.url);
@@ -1860,24 +1877,60 @@
     const badges = e.versions.map((v) => badge(v.venue, venueColor(v)));
     if (e.sources.includes("pubmed") && !e.versions.some((v) => v.venue === "PubMed")) badges.push(badge("PubMed", "var(--src-pubmed)"));
     const wasOpened = opened.has(e.id);
+    const short = e.title.slice(0, 60);
     const card = h(
       "article",
-      { class: `entry${isNew ? " new" : ""}${wasOpened ? " opened" : ""}`, "data-id": e.id, "aria-label": `${isNew ? "New: " : ""}${wasOpened ? "Opened: " : ""}${e.title}` },
+      {
+        class: `entry${isNew ? " new" : ""}${wasOpened ? " opened" : ""}${saved && !inList ? " saved" : ""}${picking && picked.has(e.id) ? " picked" : ""}`,
+        "data-id": e.id,
+        "aria-label": `${isNew ? "New: " : ""}${wasOpened ? "Opened: " : ""}${saved && !inList ? "To read: " : ""}${e.title}`
+      },
       h(
         "div",
         { class: "e-top" },
+        picking ? h("input", {
+          class: "e-pick",
+          type: "checkbox",
+          "aria-label": `Select \u201C${short}\u201D`,
+          "data-focus": `pick:${e.id}`,
+          ...picked.has(e.id) ? { checked: "" } : {},
+          onchange: (ev) => {
+            if (ev.target.checked) picked.add(e.id);
+            else picked.delete(e.id);
+            card.classList.toggle("picked", ev.target.checked);
+            renderTopicBar();
+          }
+        }) : null,
         h("h3", { class: "e-title" }, titleNode),
-        h("button", {
+        inList || picking ? null : h("button", {
+          class: "btn btn-ghost btn-icon e-save",
+          type: "button",
+          "aria-pressed": String(saved),
+          "data-focus": `save:${e.id}`,
+          "aria-label": saved ? `Remove \u201C${short}\u201D from To read` : `Add \u201C${short}\u201D to To read`,
+          title: saved ? "Remove from To read" : "Add to To read",
+          onclick: () => toggleToRead(topicId, e)
+        }, icon("bookmark")),
+        picking ? null : h("button", {
           class: "btn btn-ghost btn-icon e-dismiss",
           type: "button",
-          "aria-label": `Dismiss \u201C${e.title.slice(0, 60)}\u201D`,
-          title: "Dismiss",
           "data-focus": `dismiss:${e.id}`,
-          onclick: () => dismiss(topicId, e.id, card)
+          "aria-label": inList ? `Remove \u201C${short}\u201D from To read` : `Dismiss \u201C${short}\u201D`,
+          title: inList ? "Remove from To read" : "Dismiss",
+          onclick: () => inList ? removeFromList(e, card) : dismiss(topicId, e.id, card)
         }, icon("x"))
       ),
       h("p", { class: "e-authors", title: e.authors.join(", ") }, shortAuthors(e.authors)),
-      h("div", { class: "e-meta" }, h("span", {}, formatDate(e.date)), badges, h("span", { class: "opened-tag", title: "You opened this paper" }, "\u2713 Opened"), h("span", { class: "e-links" }, entryLinks(e)))
+      h(
+        "div",
+        { class: "e-meta" },
+        h("span", {}, formatDate(e.date)),
+        badges,
+        h("span", { class: "toread-tag", title: "In your To read list" }, icon("bookmark"), "To read"),
+        h("span", { class: "opened-tag", title: "You opened this paper" }, "\u2713 Opened"),
+        inList && e.topicName ? h("span", { class: "e-from" }, `from ${e.topicName}`) : null,
+        h("span", { class: "e-links" }, entryLinks(e))
+      )
     );
     if (e.abstract) {
       const panel = h("div", { class: `abs${open ? " open" : ""}`, id: absId }, h("div", {}, h("p", {}, e.abstract)));
@@ -1906,6 +1959,54 @@
     await new Promise((r) => setTimeout(r, 160));
     pendingFocus = focusKey;
     await send("dismiss", { topicId, entryId });
+  }
+  async function toggleToRead(topicId, e) {
+    const items = savedItems(e);
+    pendingFocus = `save:${e.id}`;
+    if (items.length) {
+      await send("removeToRead", { ids: items.map((t) => t.id) });
+      status("Removed from To read");
+    } else {
+      await send("addToRead", { topicId, entryIds: [e.id] });
+      status("Added to To read");
+    }
+  }
+  async function removeFromList(e, card) {
+    const next = card.nextElementSibling || card.previousElementSibling;
+    card.classList.add("leaving");
+    await new Promise((r) => setTimeout(r, 160));
+    pendingFocus = next?.dataset.id ? `dismiss:${next.dataset.id}` : `tab:${TOREAD}`;
+    await send("removeToRead", { ids: [e.id] });
+  }
+  function setSelecting(listId) {
+    selecting = listId;
+    picked.clear();
+    confirmAll = null;
+    pendingFocus = listId ? "sel-all" : `select:${active}`;
+    lastSig = null;
+    render();
+  }
+  async function bulk(action) {
+    const ids = [...picked];
+    if (!ids.length) return;
+    const listId = selecting;
+    let msg = "";
+    if (action === "dismiss") {
+      const n = await send("dismissMany", { topicId: listId, entryIds: ids });
+      msg = `Dismissed ${n} paper${n === 1 ? "" : "s"}`;
+    } else if (action === "save") {
+      const n = await send("addToRead", { topicId: listId, entryIds: ids });
+      msg = n ? `Added ${n} to To read` : "Already in To read";
+    } else if (action === "unsave") {
+      const n = await send("removeToRead", { ids });
+      msg = `Removed ${n} from To read`;
+    }
+    selecting = null;
+    picked.clear();
+    pendingFocus = `select:${listId}`;
+    lastSig = null;
+    render();
+    status(msg);
   }
   var pendingFocus = null;
   function shortReason(m = "") {
@@ -2047,27 +2148,57 @@
         "data-focus": `tab:${t.id}`,
         onclick: () => selectTopic(t.id)
       }, t.name, h("span", { class: "count", "aria-label": `${n} unread` }, String(n)));
-    }));
+    }), h("button", {
+      class: "tab toread",
+      role: "tab",
+      type: "button",
+      id: `tab-${TOREAD}`,
+      "aria-selected": String(active === TOREAD),
+      "aria-controls": "list",
+      tabindex: active === TOREAD ? "0" : "-1",
+      "data-focus": `tab:${TOREAD}`,
+      onclick: () => selectTopic(TOREAD)
+    }, icon("bookmark"), "To read", h("span", { class: "count", "aria-label": `${state.toRead.length} saved` }, String(state.toRead.length))));
     $("list").setAttribute("aria-labelledby", `tab-${active}`);
   }
-  function renderList() {
-    const list = $("list");
-    const topic = state.topics.find((t) => t.id === active);
+  function currentEntries() {
+    return active === TOREAD ? state.toRead : sortEntries(state.entries[active] || []);
+  }
+  function renderTopicBar() {
     const bar = $("topic-bar");
-    if (!topic) {
+    const topic = state.topics.find((t) => t.id === active);
+    const entries = currentEntries();
+    if (!topic && active !== TOREAD) {
       bar.replaceChildren();
-      list.replaceChildren(h(
-        "div",
-        { class: "empty" },
-        h("strong", {}, "No topics yet"),
-        "Add a topic with a search query to start following new papers.",
-        h("div", {}, h("button", { class: "btn btn-primary", type: "button", onclick: () => import_webextension_polyfill.default.runtime.openOptionsPage() }, icon("plus"), "Add a topic"))
-      ));
       return;
     }
-    const entries = sortEntries(state.entries[topic.id] || []);
-    bar.replaceChildren(h("span", { class: "q", title: topic.query }, topic.query));
+    if (selecting === active) {
+      const ids = new Set(entries.map((e) => e.id));
+      for (const id of [...picked]) if (!ids.has(id)) picked.delete(id);
+      const n = picked.size;
+      const all = h("input", { type: "checkbox", "data-focus": "sel-all", "aria-label": "Select all", ...n && n === entries.length ? { checked: "" } : {} });
+      all.indeterminate = n > 0 && n < entries.length;
+      all.addEventListener("change", () => {
+        picked.clear();
+        if (all.checked) for (const e of entries) picked.add(e.id);
+        pendingFocus = "sel-all";
+        lastSig = null;
+        render();
+      });
+      const act = (label, action, ico, extra = "") => h("button", { class: `btn btn-sm ${extra}`, type: "button", "data-focus": `bulk:${action}`, disabled: n === 0, onclick: () => bulk(action) }, icon(ico), label);
+      bar.replaceChildren(
+        h("label", { class: "sel-all" }, all, "All"),
+        h("span", { class: "sel-count", "aria-live": "polite" }, `${n} selected`),
+        ...active === TOREAD ? [act("Remove", "unsave", "x")] : [act("To read", "save", "bookmark"), act("Dismiss", "dismiss", "x")],
+        h("button", { class: "btn btn-sm btn-ghost", type: "button", "data-focus": "sel-done", onclick: () => setSelecting(null) }, "Done")
+      );
+      return;
+    }
+    bar.replaceChildren(active === TOREAD ? h("span", { class: "q plain" }, "Kept even after you dismiss them from a topic.") : h("span", { class: "q", title: topic.query }, topic.query));
     if (entries.length) {
+      bar.append(h("button", { class: "btn btn-sm btn-ghost", type: "button", "data-focus": `select:${active}`, title: "Select several papers", onclick: () => setSelecting(active) }, icon("select"), "Select"));
+    }
+    if (entries.length && topic) {
       const btn = h(
         "button",
         { class: "btn btn-sm btn-ghost", type: "button", "data-focus": `all:${topic.id}` },
@@ -2093,6 +2224,31 @@
       });
       bar.append(btn);
     }
+  }
+  function renderList() {
+    const list = $("list");
+    const topic = state.topics.find((t) => t.id === active);
+    renderTopicBar();
+    if (active === TOREAD) {
+      list.replaceChildren(...state.toRead.length ? state.toRead.map((e) => renderEntry(e, TOREAD)) : [h(
+        "div",
+        { class: "empty" },
+        h("strong", {}, "Nothing to read yet"),
+        "Use the bookmark button on a paper to keep it here, even after you dismiss it from its topic."
+      )]);
+      return;
+    }
+    if (!topic) {
+      list.replaceChildren(h(
+        "div",
+        { class: "empty" },
+        h("strong", {}, "No topics yet"),
+        "Add a topic with a search query to start following new papers.",
+        h("div", {}, h("button", { class: "btn btn-primary", type: "button", onclick: () => import_webextension_polyfill.default.runtime.openOptionsPage() }, icon("plus"), "Add a topic"))
+      ));
+      return;
+    }
+    const entries = sortEntries(state.entries[topic.id] || []);
     const lc = state.lastChecked[topic.id]?.at;
     list.replaceChildren(...entries.length ? entries.map((e) => renderEntry(e, topic.id)) : [h(
       "div",
@@ -2105,6 +2261,10 @@
     const total = state.topics.reduce((n, t) => n + (state.entries[t.id] || []).length, 0);
     $("foot-count").textContent = `${total} unread across ${state.topics.length} topic${state.topics.length === 1 ? "" : "s"}`;
     const topic = state.topics.find((t) => t.id === active);
+    if (active === TOREAD) {
+      $("foot-sources").textContent = `${state.toRead.length} to read`;
+      return;
+    }
     $("foot-sources").textContent = topic ? SOURCES.filter((s) => topicSourceEnabled(topic, state.settings, s.id)).map((s) => s.label.replace(/ \(.*\)/, "")).join(" \xB7 ") : "";
   }
   function render() {
@@ -2119,7 +2279,7 @@
     if (focusKey) document.querySelector(`[data-focus="${CSS.escape(focusKey)}"]`)?.focus();
   }
   function markNew(topicId) {
-    if (newIds[topicId]) return;
+    if (topicId === TOREAD || newIds[topicId]) return;
     const unseen = (state.entries[topicId] || []).filter((e) => !e.seen);
     newIds[topicId] = new Set(unseen.map((e) => e.id));
     if (unseen.length) send("markSeen", { topicId }).catch(() => {
@@ -2128,6 +2288,8 @@
   function selectTopic(id) {
     active = id;
     confirmAll = null;
+    selecting = null;
+    picked.clear();
     LS.set("np-active-topic", id);
     markNew(id);
     pendingFocus = `tab:${id}`;
@@ -2142,15 +2304,16 @@
       s.meta.running,
       s.meta.lastRun?.at,
       s.meta.lastRun?.finishedAt,
+      s.toRead.map((t) => t.id),
       Object.fromEntries(Object.entries(s.entries).map(([k, l]) => [k, l.map((e) => [e.id, e.versions.length, e.abstract.length])])),
       Object.fromEntries(Object.entries(s.lastChecked).map(([k, v]) => [k, v.at]))
     ]);
   }
   async function reload() {
     state = await loadAll(import_webextension_polyfill.default.storage.local);
-    if (!state.topics.some((t) => t.id === active)) {
+    if (active !== TOREAD && !state.topics.some((t) => t.id === active)) {
       const saved = LS.get("np-active-topic");
-      active = state.topics.some((t) => t.id === saved) ? saved : state.topics[0]?.id ?? null;
+      active = saved === TOREAD || state.topics.some((t) => t.id === saved) ? saved : state.topics[0]?.id ?? null;
     }
     if (active) markNew(active);
     for (const t of state.topics) {
@@ -2164,7 +2327,7 @@
   }
   $("tabs").addEventListener("keydown", (ev) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(ev.key)) return;
-    const ids = state.topics.map((t) => t.id);
+    const ids = [...state.topics.map((t) => t.id), TOREAD];
     let i = ids.indexOf(active);
     i = ev.key === "Home" ? 0 : ev.key === "End" ? ids.length - 1 : (i + (ev.key === "ArrowRight" ? 1 : -1) + ids.length) % ids.length;
     ev.preventDefault();
@@ -2185,6 +2348,11 @@
     if (ev.key === "Escape" && !$("history").hidden) {
       ev.preventDefault();
       toggleHistory(false);
+      return;
+    }
+    if (ev.key === "Escape" && selecting) {
+      ev.preventDefault();
+      setSelecting(null);
     }
   });
   var reloadTimer = null;

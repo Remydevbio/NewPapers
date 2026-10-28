@@ -195,7 +195,8 @@ await step('popup UI renders tabs, entries, badges and links', async () => {
     const e = document.querySelector('.entry');
     if (!e) return null;
     return { tabs: [...document.querySelectorAll('.tab')].map((t) => t.textContent), badge: !!e.querySelector('.badge'), link: e.querySelector('.e-links a')?.href };`), { what: 'entries' });
-  assert.equal(info.tabs.length, 2);
+  assert.equal(info.tabs.length, 3, 'two topics + To read');
+  assert.match(info.tabs[2], /To read/);
   assert.ok(info.badge);
   assert.match(info.link, /^https:\/\//);
   await run(popCtx, 'document.querySelector(".abs-toggle")?.click(); await new Promise((r) => setTimeout(r, 300));');
